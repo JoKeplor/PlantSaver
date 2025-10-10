@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plant IoT Dashboard</title>
+<title>PlantSaver IoT </title>
 
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -12,18 +12,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-/* Gradient chart line plugin for Chart.js */
-.chart-gradient {
-  background: linear-gradient(90deg, rgba(16,185,129,0.4), rgba(6,182,212,0.4));
-}
+body { background-color: #111827; }
 </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans">
+<body class="font-sans text-gray-100">
 
 <!-- Top Navigation -->
 <header class="bg-gray-800 shadow-lg">
   <div class="container mx-auto flex items-center justify-between p-4">
-    <h1 class="text-2xl font-bold text-green-400">🌱 Plant Monitoring Dashboard</h1>
+    <h1 class="text-2xl font-bold text-green-400">🌱 PlantSaver Dashboard</h1>
     <p id="lastUpdate" class="text-gray-400">Last update: --</p>
   </div>
 </header>
@@ -52,12 +49,29 @@
 
   <!-- Charts -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Soil Moisture Chart -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-6">
       <h2 class="text-xl font-semibold mb-4">Soil Moisture (Last 20 readings)</h2>
       <canvas id="moistureChart"></canvas>
     </div>
+
+    <!-- Weather Chart with Selection -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Weather Data (Temp, Pressure, Humidity)</h2>
+      <h2 class="text-xl font-semibold mb-4">Weather Data</h2>
+
+      <!-- Selection checkboxes -->
+      <div class="flex gap-4 mb-4">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="showTemp" checked class="accent-red-500"> Temperature
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="showPressure" checked class="accent-blue-500"> Pressure
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="showHumidity" checked class="accent-yellow-500"> Humidity
+        </label>
+      </div>
+
       <canvas id="weatherChart"></canvas>
     </div>
   </div>
@@ -67,15 +81,16 @@
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
 const results = 20;
+let weatherChart;
 
-// Fetch ThingSpeak data
+// Fetch data from ThingSpeak
 async function getData() {
     const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`);
     const data = await res.json();
     return data.feeds;
 }
 
-// Update dashboard
+// Update dashboard and charts
 async function updateDashboard() {
     const feeds = await getData();
     const latest = feeds[feeds.length - 1];
@@ -94,50 +109,47 @@ async function updateDashboard() {
     const pressureData = feeds.map(f => f.field3).reverse();
     const humidityData = feeds.map(f => f.field4).reverse();
 
-    // Gradient for moisture chart
+    // Soil Moisture Chart
     const ctxMoisture = document.getElementById('moistureChart').getContext('2d');
     const gradient = ctxMoisture.createLinearGradient(0, 0, 0, 400);
     gradient.addColorStop(0, 'rgba(16,185,129,0.4)');
     gradient.addColorStop(1, 'rgba(6,182,212,0.1)');
 
-    // Moisture chart
     new Chart(ctxMoisture, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Soil Moisture (%)',
-                data: moistureData,
-                backgroundColor: gradient,
-                borderColor: '#10B981',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 3
-            }]
-        },
+        data: { labels, datasets: [{ label: 'Soil Moisture (%)', data: moistureData, backgroundColor: gradient, borderColor: '#10B981', tension: 0.4, fill: true, pointRadius: 3 }] },
         options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
     });
 
-    // Weather chart
+    // Weather Chart with selected datasets
+    const datasets = [];
+    if (document.getElementById('showTemp').checked) {
+        datasets.push({ label: 'Temperature (°C)', data: tempData, borderColor: '#EF4444', tension: 0.4, fill: false, pointRadius: 3 });
+    }
+    if (document.getElementById('showPressure').checked) {
+        datasets.push({ label: 'Pressure (hPa)', data: pressureData, borderColor: '#3B82F6', tension: 0.4, fill: false, pointRadius: 3 });
+    }
+    if (document.getElementById('showHumidity').checked) {
+        datasets.push({ label: 'Humidity (%)', data: humidityData, borderColor: '#FACC15', tension: 0.4, fill: false, pointRadius: 3 });
+    }
+
     const ctxWeather = document.getElementById('weatherChart').getContext('2d');
-    new Chart(ctxWeather, {
+    if (weatherChart) weatherChart.destroy();
+
+    weatherChart = new Chart(ctxWeather, {
         type: 'line',
-        data: {
-            labels,
-            datasets: [
-                { label: 'Temperature (°C)', data: tempData, borderColor: '#EF4444', tension: 0.4, fill: false, pointRadius: 3 },
-                { label: 'Pressure (hPa)', data: pressureData, borderColor: '#3B82F6', tension: 0.4, fill: false, pointRadius: 3 },
-                { label: 'Humidity (%)', data: humidityData, borderColor: '#FACC15', tension: 0.4, fill: false, pointRadius: 3 }
-            ]
-        },
+        data: { labels, datasets },
         options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
     });
 }
 
-// Initial load
-updateDashboard();
+// Event listeners for checkboxes
+document.getElementById('showTemp').addEventListener('change', updateDashboard);
+document.getElementById('showPressure').addEventListener('change', updateDashboard);
+document.getElementById('showHumidity').addEventListener('change', updateDashboard);
 
-// Auto-refresh every 15 seconds
+// Initial load and auto-refresh
+updateDashboard();
 setInterval(updateDashboard, 15000);
 </script>
 </body>
