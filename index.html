@@ -1,49 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ThingSpeak Temperature Chart</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>ThingSpeak Value</title>
 </head>
 <body>
-  <canvas id="temperatureChart" width="600" height="400"></canvas>
+  <h2>Latest Temperature</h2>
+  <div id="value">Loading...</div>
 
   <script>
-    const channelID = "1"; // replace with your channel number
-    const readAPIKey = "EAG5JSOPGG6TUX2V";
-    const fieldNumber = 1;
+    const channelID = "1"; // Replace with your ThingSpeak channel number
+    const readAPIKey = "EAG5JSOPGG6TUX2V"; // Replace with your Read API Key
+    const fieldNumber = 1; // The field you are retrieving
 
-    async function fetchData() {
-      const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=20`;
-      const response = await fetch(url);
-      const data = await response.json();
-      const feeds = data.feeds;
+    async function fetchValue() {
+      try {
+        const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=1`;
+        const response = await fetch(url);
+        const data = await response.json();
 
-      const labels = feeds.map(f => f.created_at);
-      const values = feeds.map(f => parseFloat(f[`field${fieldNumber}`]));
-
-      const ctx = document.getElementById('temperatureChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Temperature (°C)',
-            data: values,
-            borderColor: 'red',
-            fill: false
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { display: true, title: { display: true, text: 'Time' } },
-            y: { display: true, title: { display: true, text: 'Temperature (°C)' } }
-          }
-        }
-      });
+        // Extract the latest value
+        const latestValue = data.feeds[0][`field${fieldNumber}`];
+        document.getElementById('value').textContent = latestValue;
+      } catch (error) {
+        document.getElementById('value').textContent = 'Error fetching data';
+        console.error(error);
+      }
     }
 
-    fetchData();
+    fetchValue();
   </script>
 </body>
 </html>
