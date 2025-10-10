@@ -1,33 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>ESP32 Humidity Data</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <title>ThingSpeak Temperature Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>ESP32 Humidity Monitor</h1>
-  <p>Humidity Value: <span id="humidity">Loading...</span></p>
+  <canvas id="temperatureChart" width="600" height="400"></canvas>
 
   <script>
-    // Replace with your Firebase config
-    var firebaseConfig = {
-      apiKey: "AIzaSyAxdiRstsViFaH_gwRmoZYGjD3t7htooVU",
-      authDomain: "plantsaverjokeplor.firebaseapp.com",
-      databaseURL: "https://plantsaverjokeplor-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "plantsaverjokeplor",
-      storageBucket: "your-project-id.appspot.com",
-      messagingSenderId: "1025741985393",
-      appId: "1:1025741985393:web:66b6c765236ef9b486edd0"
-    };
+    const channelID = "1"; // replace with your channel number
+    const readAPIKey = "EAG5JSOPGG6TUX2V";
+    const fieldNumber = 1;
 
-    firebase.initializeApp(firebaseConfig);
-    var dbRef = firebase.database().ref("humidity");
+    async function fetchData() {
+      const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=20`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const feeds = data.feeds;
 
-    dbRef.on("value", (snapshot) => {
-      document.getElementById("humidity").innerText = snapshot.val();
-    });
+      const labels = feeds.map(f => f.created_at);
+      const values = feeds.map(f => parseFloat(f[`field${fieldNumber}`]));
+
+      const ctx = document.getElementById('temperatureChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Temperature (°C)',
+            data: values,
+            borderColor: 'red',
+            fill: false
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { display: true, title: { display: true, text: 'Time' } },
+            y: { display: true, title: { display: true, text: 'Temperature (°C)' } }
+          }
+        }
+      });
+    }
+
+    fetchData();
   </script>
 </body>
 </html>
