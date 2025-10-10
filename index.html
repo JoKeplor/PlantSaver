@@ -1,33 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ThingSpeak Value</title>
+  <title>ThingSpeak Temperature Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h2>Latest Temperature</h2>
-  <div id="value">Loading...</div>
+  <h2>Temperature Over Time</h2>
+  <canvas id="temperatureChart" width="600" height="400"></canvas>
 
   <script>
     const channelID = "3110199"; // Replace with your ThingSpeak channel number
     const readAPIKey = "EAG5JSOPGG6TUX2V"; // Replace with your Read API Key
-    const fieldNumber = 1; // The field you are retrieving
+    const fieldNumber = 1; // Field number to plot
+    const resultsCount = 20; // Number of data points to fetch
 
-    async function fetchValue() {
+    async function fetchData() {
+      const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=${resultsCount}`;
       try {
-        const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=1`;
         const response = await fetch(url);
         const data = await response.json();
 
-        // Extract the latest value
-        const latestValue = data.feeds[0][`field${fieldNumber}`];
-        document.getElementById('value').textContent = latestValue;
+        // Extract labels (time) and values
+        const labels = data.feeds.map(f => new Date(f.created_at).toLocaleTimeString());
+        const values = data.feeds.map(f => parseFloat(f[`field${fieldNumber}`]));
+
+        // Draw chart
+        const ctx = document.getElementById('temperatureChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: values,
+              borderColor: 'red',
+              fill: false,
+              tension: 0.2
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: { display: true, title: { display: true, text: 'Time' } },
+              y: { display: true, title: { display: true, text: 'Temperature (°C)' } }
+            }
+          }
+        });
       } catch (error) {
-        document.getElementById('value').textContent = 'Error fetching data';
-        console.error(error);
+        console.error("Error fetching data:", error);
       }
     }
 
-    fetchValue();
+    fetchData();
   </script>
 </body>
 </html>
