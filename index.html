@@ -1,57 +1,203 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ThingSpeak Temperature Chart</title>
+  <meta charset="UTF-8">
+  <title>IoT Dashboard - Plant & Weather</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f0f2f5;
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+      background-color: #3b82f6;
+      color: white;
+    }
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px;
+      gap: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      min-width: 200px;
+      text-align: center;
+    }
+    .card h3 {
+      margin: 0;
+      font-size: 1.2em;
+      color: #555;
+    }
+    .card p {
+      font-size: 2em;
+      margin: 10px 0 0 0;
+      font-weight: bold;
+    }
+    .charts {
+      width: 90%;
+      max-width: 900px;
+      margin: 40px auto;
+    }
+    .chart-container {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      margin-bottom: 30px;
+    }
+    button.toggle-chart {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      border: none;
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <h2>Temperature Over Time</h2>
-  <canvas id="temperatureChart" width="600" height="400"></canvas>
 
-  <script>
-    const channelID = "3110199"; // Replace with your ThingSpeak channel number
-    const readAPIKey = "EAG5JSOPGG6TUX2V"; // Replace with your Read API Key
-    const fieldNumber = 1; // Field number to plot
-    const resultsCount = 20; // Number of data points to fetch
+<header>
+  <h1>IoT Plant & Weather Dashboard</h1>
+</header>
 
-    async function fetchData() {
-      const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}.json?api_key=${readAPIKey}&results=${resultsCount}`;
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
+<div class="cards">
+  <div class="card">
+    <h3>Soil Humidity</h3>
+    <p id="soilHumidity">--%</p>
+  </div>
+  <div class="card">
+    <h3>Temperature</h3>
+    <p id="temperature">--°C</p>
+  </div>
+  <div class="card">
+    <h3>Humidity</h3>
+    <p id="humidity">--%</p>
+  </div>
+</div>
 
-        // Extract labels (time) and values
-        const labels = data.feeds.map(f => new Date(f.created_at).toLocaleTimeString());
-        const values = data.feeds.map(f => parseFloat(f[`field${fieldNumber}`]));
+<div class="charts">
+  <button class="toggle-chart" onclick="toggleChart('soilChartContainer')">Toggle Soil Humidity Chart</button>
+  <div class="chart-container" id="soilChartContainer">
+    <canvas id="soilChart"></canvas>
+  </div>
 
-        // Draw chart
-        const ctx = document.getElementById('temperatureChart').getContext('2d');
-        new Chart(ctx, {
+  <button class="toggle-chart" onclick="toggleChart('weatherChartContainer')">Toggle Weather Chart</button>
+  <div class="chart-container" id="weatherChartContainer">
+    <canvas id="weatherChart"></canvas>
+  </div>
+</div>
+
+<script>
+  // CONFIGURATION
+  const channelID = "3110199"; // ThingSpeak channel
+  const readAPIKey = "EAG5JSOPGG6TUX2V"; 
+  const resultsCount = 50; // Points to plot
+  const updateInterval = 15000; // 15 seconds
+
+  let soilChart, weatherChart;
+
+  function toggleChart(containerId) {
+    const container = document.getElementById(containerId);
+    container.style.display = container.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function fetchData() {
+    const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readAPIKey}&results=${resultsCount}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      const labels = data.feeds.map(f => new Date(f.created_at).toLocaleTimeString());
+      const soilValues = data.feeds.map(f => parseFloat(f.field1));  // Soil humidity
+      const tempValues = data.feeds.map(f => parseFloat(f.field2));  // Temperature
+      const humValues = data.feeds.map(f => parseFloat(f.field3));   // Humidity
+
+      // Update cards with latest values
+      document.getElementById('soilHumidity').textContent = soilValues[soilValues.length-1] + '%';
+      document.getElementById('temperature').textContent = tempValues[tempValues.length-1] + '°C';
+      document.getElementById('humidity').textContent = humValues[humValues.length-1] + '%';
+
+      // Soil Chart
+      if (!soilChart) {
+        const ctx = document.getElementById('soilChart').getContext('2d');
+        soilChart = new Chart(ctx, {
           type: 'line',
           data: {
             labels: labels,
             datasets: [{
-              label: 'Temperature (°C)',
-              data: values,
-              borderColor: 'red',
+              label: 'Soil Humidity (%)',
+              data: soilValues,
+              borderColor: 'green',
               fill: false,
               tension: 0.2
             }]
           },
-          options: {
-            responsive: true,
-            scales: {
-              x: { display: true, title: { display: true, text: 'Time' } },
-              y: { display: true, title: { display: true, text: 'Temperature (°C)' } }
-            }
-          }
+          options: { responsive: true }
         });
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      } else {
+        soilChart.data.labels = labels;
+        soilChart.data.datasets[0].data = soilValues;
+        soilChart.update();
       }
-    }
 
-    fetchData();
-  </script>
+      // Weather Chart
+      if (!weatherChart) {
+        const ctx2 = document.getElementById('weatherChart').getContext('2d');
+        weatherChart = new Chart(ctx2, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Temperature (°C)',
+                data: tempValues,
+                borderColor: 'red',
+                fill: false,
+                tension: 0.2
+              },
+              {
+                label: 'Humidity (%)',
+                data: humValues,
+                borderColor: 'blue',
+                fill: false,
+                tension: 0.2
+              }
+            ]
+          },
+          options: { responsive: true }
+        });
+      } else {
+        weatherChart.data.labels = labels;
+        weatherChart.data.datasets[0].data = tempValues;
+        weatherChart.data.datasets[1].data = humValues;
+        weatherChart.update();
+      }
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  }
+
+  // Initial fetch
+  fetchData();
+  // Auto-update every interval
+  setInterval(fetchData, updateInterval);
+
+  // Hide charts initially
+  document.getElementById('soilChartContainer').style.display = 'none';
+  document.getElementById('weatherChartContainer').style.display = 'none';
+</script>
+
 </body>
 </html>
