@@ -3,129 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Premium IoT Dashboard</title>
-<!-- Tailwind CSS CDN -->
-<script src="https://cdn.tailwindcss.com"></script>
-<!-- Chart.js CDN -->
+<title>Plant Monitoring Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans">
 
-<!-- Navbar -->
-<header class="bg-blue-600 text-white p-4 shadow-lg flex justify-between items-center">
-  <h1 class="text-2xl font-bold">IoT Plant & Weather Dashboard</h1>
-  <span id="lastUpdate" class="text-sm opacity-75">Last update: --</span>
-</header>
+<div class="container mx-auto p-4">
+  <h1 class="text-3xl font-bold mb-4 text-center">Plant Monitoring Dashboard</h1>
 
-<!-- Overview Cards -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-  <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 014-4h10a4 4 0 110 8H7a4 4 0 01-4-4z" />
-    </svg>
-    <h3 class="mt-2 text-gray-500 font-medium">Soil Humidity</h3>
-    <p id="soilHumidity" class="text-3xl font-bold mt-1">--%</p>
-  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Soil Moisture Card -->
+    <div class="bg-white p-6 rounded-xl shadow-lg">
+      <h2 class="text-xl font-semibold mb-2">Soil Moisture</h2>
+      <canvas id="moistureChart"></canvas>
+    </div>
 
-  <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v6l4 2-4 2v6m0-16v6m0 0l-4 2 4 2m0-6l4-2" />
-    </svg>
-    <h3 class="mt-2 text-gray-500 font-medium">Temperature</h3>
-    <p id="temperature" class="text-3xl font-bold mt-1">--°C</p>
+    <!-- Weather Card -->
+    <div class="bg-white p-6 rounded-xl shadow-lg">
+      <h2 class="text-xl font-semibold mb-2">Air Data</h2>
+      <canvas id="weatherChart"></canvas>
+    </div>
   </div>
-
-  <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v6l4 2-4 2v6m0-16v6m0 0l-4 2 4 2m0-6l4-2" />
-    </svg>
-    <h3 class="mt-2 text-gray-500 font-medium">Air Humidity</h3>
-    <p id="humidity" class="text-3xl font-bold mt-1">--%</p>
-  </div>
-</section>
-
-<!-- Charts Section -->
-<section class="p-6 max-w-6xl mx-auto">
-  <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-    <h2 class="text-xl font-semibold mb-4">Soil Humidity Over Time</h2>
-    <canvas id="soilChart"></canvas>
-  </div>
-  <div class="bg-white rounded-xl shadow-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Temperature & Air Humidity Over Time</h2>
-    <canvas id="weatherChart"></canvas>
-  </div>
-</section>
+</div>
 
 <script>
-  // --- CONFIGURATION ---
-  const channelID = "3110199"; // ThingSpeak channel
-  const readAPIKey = "EAG5JSOPGG6TUX2V"; // ThingSpeak read API
-  const resultsCount = 20; // Number of points to show
-  const updateInterval = 15000; // 15s refresh
+const apiKey = "EAG5JSOPGG6TUX2V";
+const channelID = "3110199";
 
-  let soilChart, weatherChart;
+async function getData() {
+    const response = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=20`);
+    const data = await response.json();
+    return data.feeds;
+}
 
-  async function fetchData() {
-    try {
-      const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readAPIKey}&results=${resultsCount}`;
-      const response = await fetch(url);
-      const data = await response.json();
+async function plotData() {
+    const feeds = await getData();
+    const labels = feeds.map(f => f.created_at).reverse();
 
-      const labels = data.feeds.map(f => new Date(f.created_at).toLocaleTimeString());
-      const soilValues = data.feeds.map(f => parseFloat(f.field1)); // Soil Humidity
-      const tempValues = data.feeds.map(f => parseFloat(f.field2)); // Temperature
-      const humValues = data.feeds.map(f => parseFloat(f.field3)); // Air Humidity
+    const moistureData = feeds.map(f => f.field1).reverse();
+    const tempData = feeds.map(f => f.field2).reverse();
+    const pressureData = feeds.map(f => f.field3).reverse();
+    const humidityData = feeds.map(f => f.field4).reverse();
 
-      // Update cards
-      document.getElementById('soilHumidity').textContent = soilValues.at(-1) + '%';
-      document.getElementById('temperature').textContent = tempValues.at(-1) + '°C';
-      document.getElementById('humidity').textContent = humValues.at(-1) + '%';
-      document.getElementById('lastUpdate').textContent = "Last update: " + new Date().toLocaleTimeString();
+    new Chart(document.getElementById('moistureChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Soil Moisture', data: moistureData, borderColor: 'green', fill: false }] }
+    });
 
-      // Soil Chart
-      if (!soilChart) {
-        const ctx = document.getElementById('soilChart').getContext('2d');
-        soilChart = new Chart(ctx, {
-          type: 'line',
-          data: { labels, datasets: [{ label: 'Soil Humidity (%)', data: soilValues, borderColor: 'green', fill: true, backgroundColor: 'rgba(34,197,94,0.2)', tension: 0.3 }] },
-          options: { responsive: true, plugins: { legend: { display: true } } }
-        });
-      } else {
-        soilChart.data.labels = labels;
-        soilChart.data.datasets[0].data = soilValues;
-        soilChart.update();
-      }
-
-      // Weather Chart
-      if (!weatherChart) {
-        const ctx2 = document.getElementById('weatherChart').getContext('2d');
-        weatherChart = new Chart(ctx2, {
-          type: 'line',
-          data: {
+    new Chart(document.getElementById('weatherChart'), {
+        type: 'line',
+        data: {
             labels,
             datasets: [
-              { label: 'Temperature (°C)', data: tempValues, borderColor: 'red', fill: false, tension: 0.3 },
-              { label: 'Air Humidity (%)', data: humValues, borderColor: 'blue', fill: false, tension: 0.3 }
+                { label: 'Temperature', data: tempData, borderColor: 'red', fill: false },
+                { label: 'Pressure', data: pressureData, borderColor: 'blue', fill: false },
+                { label: 'Humidity', data: humidityData, borderColor: 'orange', fill: false }
             ]
-          },
-          options: { responsive: true, plugins: { legend: { display: true } } }
-        });
-      } else {
-        weatherChart.data.labels = labels;
-        weatherChart.data.datasets[0].data = tempValues;
-        weatherChart.data.datasets[1].data = humValues;
-        weatherChart.update();
-      }
+        }
+    });
+}
 
-    } catch (error) {
-      console.error("Error fetching ThingSpeak data:", error);
-    }
-  }
-
-  // Initial fetch
-  fetchData();
-  // Auto-update
-  setInterval(fetchData, updateInterval);
+plotData();
 </script>
 
 </body>
