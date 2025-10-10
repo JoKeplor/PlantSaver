@@ -3,69 +3,142 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plant Monitoring Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Plant IoT Dashboard</title>
+
+<!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* Gradient chart line plugin for Chart.js */
+.chart-gradient {
+  background: linear-gradient(90deg, rgba(16,185,129,0.4), rgba(6,182,212,0.4));
+}
+</style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body class="bg-gray-900 text-gray-100 font-sans">
 
-<div class="container mx-auto p-4">
-  <h1 class="text-3xl font-bold mb-4 text-center">Plant Monitoring Dashboard</h1>
+<!-- Top Navigation -->
+<header class="bg-gray-800 shadow-lg">
+  <div class="container mx-auto flex items-center justify-between p-4">
+    <h1 class="text-2xl font-bold text-green-400">🌱 Plant Monitoring Dashboard</h1>
+    <p id="lastUpdate" class="text-gray-400">Last update: --</p>
+  </div>
+</header>
 
+<!-- Main Content -->
+<main class="container mx-auto p-6">
+  <!-- Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Soil Moisture</h2>
+      <p id="moistureValue" class="text-3xl font-bold text-green-400">-- %</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Temperature</h2>
+      <p id="tempValue" class="text-3xl font-bold text-red-400">-- °C</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Pressure</h2>
+      <p id="pressureValue" class="text-3xl font-bold text-blue-400">-- hPa</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Humidity</h2>
+      <p id="humidityValue" class="text-3xl font-bold text-yellow-400">-- %</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- Soil Moisture Card -->
-    <div class="bg-white p-6 rounded-xl shadow-lg">
-      <h2 class="text-xl font-semibold mb-2">Soil Moisture</h2>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Soil Moisture (Last 20 readings)</h2>
       <canvas id="moistureChart"></canvas>
     </div>
-
-    <!-- Weather Card -->
-    <div class="bg-white p-6 rounded-xl shadow-lg">
-      <h2 class="text-xl font-semibold mb-2">Air Data</h2>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+      <h2 class="text-xl font-semibold mb-4">Weather Data (Temp, Pressure, Humidity)</h2>
       <canvas id="weatherChart"></canvas>
     </div>
   </div>
-</div>
+</main>
 
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
+const results = 20;
 
+// Fetch ThingSpeak data
 async function getData() {
-    const response = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=20`);
-    const data = await response.json();
+    const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`);
+    const data = await res.json();
     return data.feeds;
 }
 
-async function plotData() {
+// Update dashboard
+async function updateDashboard() {
     const feeds = await getData();
-    const labels = feeds.map(f => f.created_at).reverse();
+    const latest = feeds[feeds.length - 1];
 
+    // Update live values
+    document.getElementById('moistureValue').innerText = latest.field1 + " %";
+    document.getElementById('tempValue').innerText = latest.field2 + " °C";
+    document.getElementById('pressureValue').innerText = latest.field3 + " hPa";
+    document.getElementById('humidityValue').innerText = latest.field4 + " %";
+    document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
+
+    // Prepare chart data
+    const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString()).reverse();
     const moistureData = feeds.map(f => f.field1).reverse();
     const tempData = feeds.map(f => f.field2).reverse();
     const pressureData = feeds.map(f => f.field3).reverse();
     const humidityData = feeds.map(f => f.field4).reverse();
 
-    new Chart(document.getElementById('moistureChart'), {
+    // Gradient for moisture chart
+    const ctxMoisture = document.getElementById('moistureChart').getContext('2d');
+    const gradient = ctxMoisture.createLinearGradient(0, 0, 0, 400);
+    gradient.addColorStop(0, 'rgba(16,185,129,0.4)');
+    gradient.addColorStop(1, 'rgba(6,182,212,0.1)');
+
+    // Moisture chart
+    new Chart(ctxMoisture, {
         type: 'line',
-        data: { labels, datasets: [{ label: 'Soil Moisture', data: moistureData, borderColor: 'green', fill: false }] }
+        data: {
+            labels,
+            datasets: [{
+                label: 'Soil Moisture (%)',
+                data: moistureData,
+                backgroundColor: gradient,
+                borderColor: '#10B981',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 3
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
     });
 
-    new Chart(document.getElementById('weatherChart'), {
+    // Weather chart
+    const ctxWeather = document.getElementById('weatherChart').getContext('2d');
+    new Chart(ctxWeather, {
         type: 'line',
         data: {
             labels,
             datasets: [
-                { label: 'Temperature', data: tempData, borderColor: 'red', fill: false },
-                { label: 'Pressure', data: pressureData, borderColor: 'blue', fill: false },
-                { label: 'Humidity', data: humidityData, borderColor: 'orange', fill: false }
+                { label: 'Temperature (°C)', data: tempData, borderColor: '#EF4444', tension: 0.4, fill: false, pointRadius: 3 },
+                { label: 'Pressure (hPa)', data: pressureData, borderColor: '#3B82F6', tension: 0.4, fill: false, pointRadius: 3 },
+                { label: 'Humidity (%)', data: humidityData, borderColor: '#FACC15', tension: 0.4, fill: false, pointRadius: 3 }
             ]
-        }
+        },
+        options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
     });
 }
 
-plotData();
-</script>
+// Initial load
+updateDashboard();
 
+// Auto-refresh every 15 seconds
+setInterval(updateDashboard, 15000);
+</script>
 </body>
 </html>
