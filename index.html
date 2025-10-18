@@ -96,10 +96,10 @@ async function updateDashboard() {
     const latest = feeds[feeds.length - 1];
 
     // Update live values
-    document.getElementById('moistureValue').innerText = latest.field5 + " %";
-    document.getElementById('tempValue').innerText = latest.field2 + " °C";
-    document.getElementById('pressureValue').innerText = latest.field3 + " hPa";
-    document.getElementById('humidityValue').innerText = latest.field4 + " %";
+    document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
+    document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
+    document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
+    document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
     document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
 
     // Prepare chart data
