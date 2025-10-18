@@ -80,7 +80,7 @@ body { background-color: #111827; }
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-const results = 20;
+const results = 100000;
 let weatherChart;
 
 // Fetch data from ThingSpeak
@@ -96,7 +96,7 @@ async function updateDashboard() {
     const latest = feeds[feeds.length - 1];
 
     // Update live values
-    document.getElementById('moistureValue').innerText = latest.field1 + " %";
+    document.getElementById('moistureValue').innerText = latest.field5 + " %";
     document.getElementById('tempValue').innerText = latest.field2 + " °C";
     document.getElementById('pressureValue').innerText = latest.field3 + " hPa";
     document.getElementById('humidityValue').innerText = latest.field4 + " %";
