@@ -1,156 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PlantSaver IoT </title>
-
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-body { background-color: #111827; }
-</style>
+  <meta charset="UTF-8">
+  <title>Smart Weather Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #111827;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+    canvas {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .controls {
+      margin-bottom: 15px;
+    }
+    select {
+      background: #1f2937;
+      color: white;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 5px 10px;
+      margin: 0 5px;
+    }
+  </style>
 </head>
-<body class="font-sans text-gray-100">
+<body>
+  <h1>Smart Weather Dashboard</h1>
 
-<!-- Top Navigation -->
-<header class="bg-gray-800 shadow-lg">
-  <div class="container mx-auto flex items-center justify-between p-4">
-    <h1 class="text-2xl font-bold text-green-400">🌱 PlantSaver Dashboard</h1>
-    <p id="lastUpdate" class="text-gray-400">Last update: --</p>
-  </div>
-</header>
-
-<!-- Main Content -->
-<main class="container mx-auto p-6">
-  <!-- Cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Soil Moisture</h2>
-      <p id="moistureValue" class="text-3xl font-bold text-green-400">-- %</p>
-    </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Temperature</h2>
-      <p id="tempValue" class="text-3xl font-bold text-red-400">-- °C</p>
-    </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Pressure</h2>
-      <p id="pressureValue" class="text-3xl font-bold text-blue-400">-- hPa</p>
-    </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Humidity</h2>
-      <p id="humidityValue" class="text-3xl font-bold text-yellow-400">-- %</p>
-    </div>
+  <div class="values">
+    <p>🌡 Temperature: <span id="tempValue">--</span></p>
+    <p>💧 Humidity: <span id="humidityValue">--</span></p>
+    <p>📈 Pressure: <span id="pressureValue">--</span></p>
+    <p>🌿 Moisture: <span id="moistureValue">--</span></p>
+    <p id="lastUpdate"></p>
   </div>
 
-  <!-- Charts -->
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- Soil Moisture Chart -->
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Soil Moisture (Last 20 readings)</h2>
-      <canvas id="moistureChart"></canvas>
-    </div>
+  <div class="controls">
+    <label for="variableSelect">Variable:</label>
+    <select id="variableSelect">
+      <option value="field2">Temperature (°C)</option>
+      <option value="field3">Pressure (hPa)</option>
+      <option value="field4">Humidity (%)</option>
+      <option value="field5">Soil Moisture (%)</option>
+    </select>
 
-    <!-- Weather Chart with Selection -->
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-      <h2 class="text-xl font-semibold mb-4">Weather Data</h2>
-
-      <!-- Selection checkboxes -->
-      <div class="flex gap-4 mb-4">
-        <label class="flex items-center gap-2">
-          <input type="checkbox" id="showTemp" checked class="accent-red-500"> Temperature
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" id="showPressure" checked class="accent-blue-500"> Pressure
-        </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" id="showHumidity" checked class="accent-yellow-500"> Humidity
-        </label>
-      </div>
-
-      <canvas id="weatherChart"></canvas>
-    </div>
+    <label for="timeRangeSelect">Time Range:</label>
+    <select id="timeRangeSelect">
+      <option value="1h">Last Hour</option>
+      <option value="1d" selected>Last Day</option>
+      <option value="1w">Last Week</option>
+      <option value="1m">Last Month</option>
+      <option value="1y">Last Year</option>
+    </select>
   </div>
-</main>
 
-<script>
-const apiKey = "EAG5JSOPGG6TUX2V";
-const channelID = "3110199";
-const results = 100000;
-let weatherChart;
+  <canvas id="weatherChart" width="800" height="400"></canvas>
 
-// Fetch data from ThingSpeak
-async function getData() {
-    const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`);
-    const data = await res.json();
-    return data.feeds;
-}
+  <script>
+    let weatherChart;
 
-// Update dashboard and charts
-async function updateDashboard() {
-    const feeds = await getData();
-    const latest = feeds[feeds.length - 1];
+    // Example mock data fetcher (replace with your ThingSpeak / API fetch)
+    async function getData() {
+      // Example: generate random mock data for demonstration
+      const now = new Date();
+      const feeds = [];
+      for (let i = 0; i < 500; i++) {
+        feeds.push({
+          created_at: new Date(now - i * 60 * 1000).toISOString(),
+          field1: (Math.random() * 100).toFixed(2),
+          field2: (20 + Math.random() * 10).toFixed(2),
+          field3: (1000 + Math.random() * 10).toFixed(2),
+          field4: (40 + Math.random() * 20).toFixed(2),
+          field5: (30 + Math.random() * 50).toFixed(2),
+        });
+      }
+      return feeds.reverse(); // ascending order
+    }
 
-    // Update live values
-    document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
-    document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
-    document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
-    document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
-    document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
+    // Time range filter
+    function filterByTimeRange(feeds, range) {
+      const now = new Date();
+      let cutoff;
 
-    // Prepare chart data
-    const labels = feeds.map(f => new Date(f.created_at).toLocaleTimeString()).reverse();
-    const moistureData = feeds.map(f => f.field1).reverse();
-    const tempData = feeds.map(f => f.field2).reverse();
-    const pressureData = feeds.map(f => f.field3).reverse();
-    const humidityData = feeds.map(f => f.field4).reverse();
+      switch (range) {
+        case '1h': cutoff = new Date(now - 60 * 60 * 1000); break;
+        case '1d': cutoff = new Date(now - 24 * 60 * 60 * 1000); break;
+        case '1w': cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000); break;
+        case '1m': cutoff = new Date(now.setMonth(now.getMonth() - 1)); break;
+        case '1y': cutoff = new Date(now.setFullYear(now.getFullYear() - 1)); break;
+        default: cutoff = new Date(0);
+      }
 
-    // Soil Moisture Chart
-    const ctxMoisture = document.getElementById('moistureChart').getContext('2d');
-    const gradient = ctxMoisture.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(16,185,129,0.4)');
-    gradient.addColorStop(1, 'rgba(6,182,212,0.1)');
+      return feeds.filter(f => new Date(f.created_at) >= cutoff);
+    }
 
-    new Chart(ctxMoisture, {
+    async function updateDashboard() {
+      const feeds = await getData();
+      const latest = feeds[feeds.length - 1];
+
+      // Update live values
+      document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
+      document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
+      document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
+      document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
+      document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
+
+      updateChart(feeds);
+    }
+
+    function updateChart(feeds) {
+      const variable = document.getElementById('variableSelect').value;
+      const range = document.getElementById('timeRangeSelect').value;
+      const filtered = filterByTimeRange(feeds, range);
+
+      const labels = filtered.map(f => new Date(f.created_at).toLocaleTimeString());
+      const data = filtered.map(f => parseFloat(f[variable]).toFixed(2));
+
+      const labelMap = {
+        field2: 'Temperature (°C)',
+        field3: 'Pressure (hPa)',
+        field4: 'Humidity (%)',
+        field5: 'Soil Moisture (%)'
+      };
+      const colorMap = {
+        field2: '#EF4444',
+        field3: '#3B82F6',
+        field4: '#FACC15',
+        field5: '#10B981'
+      };
+
+      const ctx = document.getElementById('weatherChart').getContext('2d');
+      if (weatherChart) weatherChart.destroy();
+
+      weatherChart = new Chart(ctx, {
         type: 'line',
-        data: { labels, datasets: [{ label: 'Soil Moisture (%)', data: moistureData, backgroundColor: gradient, borderColor: '#10B981', tension: 0.4, fill: true, pointRadius: 3 }] },
-        options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
-    });
-
-    // Weather Chart with selected datasets
-    const datasets = [];
-    if (document.getElementById('showTemp').checked) {
-        datasets.push({ label: 'Temperature (°C)', data: tempData, borderColor: '#EF4444', tension: 0.4, fill: false, pointRadius: 3 });
+        data: {
+          labels,
+          datasets: [{
+            label: labelMap[variable],
+            data,
+            borderColor: colorMap[variable],
+            backgroundColor: colorMap[variable] + '33',
+            fill: true,
+            tension: 0.4,
+            pointRadius: data.length > 100 ? 0 : 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: '#ffffff' } },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.parsed.y}`
+              }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#ffffff' } },
+            y: { ticks: { color: '#ffffff' } }
+          }
+        }
+      });
     }
-    if (document.getElementById('showPressure').checked) {
-        datasets.push({ label: 'Pressure (hPa)', data: pressureData, borderColor: '#3B82F6', tension: 0.4, fill: false, pointRadius: 3 });
-    }
-    if (document.getElementById('showHumidity').checked) {
-        datasets.push({ label: 'Humidity (%)', data: humidityData, borderColor: '#FACC15', tension: 0.4, fill: false, pointRadius: 3 });
-    }
 
-    const ctxWeather = document.getElementById('weatherChart').getContext('2d');
-    if (weatherChart) weatherChart.destroy();
+    // Event listeners
+    document.getElementById('variableSelect').addEventListener('change', updateDashboard);
+    document.getElementById('timeRangeSelect').addEventListener('change', updateDashboard);
 
-    weatherChart = new Chart(ctxWeather, {
-        type: 'line',
-        data: { labels, datasets },
-        options: { responsive: true, plugins: { legend: { labels: { color: '#ffffff' } } }, scales: { x: { ticks: { color: '#ffffff' } }, y: { ticks: { color: '#ffffff' } } } }
-    });
-}
-
-// Event listeners for checkboxes
-document.getElementById('showTemp').addEventListener('change', updateDashboard);
-document.getElementById('showPressure').addEventListener('change', updateDashboard);
-document.getElementById('showHumidity').addEventListener('change', updateDashboard);
-
-// Initial load and auto-refresh
-updateDashboard();
-setInterval(updateDashboard, 15000);
-</script>
+    // Initial load + auto refresh
+    updateDashboard();
+    setInterval(updateDashboard, 15000);
+  </script>
 </body>
 </html>
