@@ -6,73 +6,88 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
       background-color: #111827;
-      color: #fff;
+      color: #ffffff;
+      font-family: 'Segoe UI', sans-serif;
       text-align: center;
+      margin: 0;
       padding: 20px;
     }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
     canvas {
-      max-width: 800px;
-      margin: 20px auto;
-      background: #1f2937;
-      border-radius: 12px;
+      background-color: #1f2937;
+      border-radius: 10px;
       padding: 10px;
+      margin-top: 20px;
     }
-    .controls {
-      margin-bottom: 15px;
-    }
+
     select {
       background: #1f2937;
-      color: white;
+      color: #ffffff;
       border: 1px solid #374151;
-      border-radius: 6px;
-      padding: 5px 10px;
-      margin: 0 5px;
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin: 0 6px;
+      font-size: 14px;
+    }
+
+    .values {
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>Smart Weather Dashboard</h1>
+  <div class="container">
+    <h2>Smart Weather Dashboard</h2>
 
-  <div class="values">
-    <p>🌡 Temperature: <span id="tempValue">--</span></p>
-    <p>💧 Humidity: <span id="humidityValue">--</span></p>
-    <p>📈 Pressure: <span id="pressureValue">--</span></p>
-    <p>🌿 Moisture: <span id="moistureValue">--</span></p>
-    <p id="lastUpdate"></p>
+    <div class="values">
+      <p>🌡 Temperature: <span id="tempValue">--</span></p>
+      <p>💧 Humidity: <span id="humidityValue">--</span></p>
+      <p>📈 Pressure: <span id="pressureValue">--</span></p>
+      <p>🌿 Moisture: <span id="moistureValue">--</span></p>
+      <p id="lastUpdate">Last update: --</p>
+    </div>
+
+    <div class="controls">
+      <label for="variableSelect">Variable:</label>
+      <select id="variableSelect">
+        <option value="field2">Temperature (°C)</option>
+        <option value="field3">Pressure (hPa)</option>
+        <option value="field4">Humidity (%)</option>
+        <option value="field5">Soil Moisture (%)</option>
+      </select>
+
+      <label for="timeRangeSelect">Time Range:</label>
+      <select id="timeRangeSelect">
+        <option value="1h">Last Hour</option>
+        <option value="1d" selected>Last Day</option>
+        <option value="1w">Last Week</option>
+        <option value="1m">Last Month</option>
+        <option value="1y">Last Year</option>
+      </select>
+    </div>
+
+    <canvas id="weatherChart" width="900" height="400"></canvas>
   </div>
-
-  <div class="controls">
-    <label for="variableSelect">Variable:</label>
-    <select id="variableSelect">
-      <option value="field2">Temperature (°C)</option>
-      <option value="field3">Pressure (hPa)</option>
-      <option value="field4">Humidity (%)</option>
-      <option value="field5">Soil Moisture (%)</option>
-    </select>
-
-    <label for="timeRangeSelect">Time Range:</label>
-    <select id="timeRangeSelect">
-      <option value="1h">Last Hour</option>
-      <option value="1d" selected>Last Day</option>
-      <option value="1w">Last Week</option>
-      <option value="1m">Last Month</option>
-      <option value="1y">Last Year</option>
-    </select>
-  </div>
-
-  <canvas id="weatherChart" width="800" height="400"></canvas>
 
   <script>
     let weatherChart;
 
-    // Example mock data fetcher (replace with your ThingSpeak / API fetch)
+    // Replace with your real API
     async function getData() {
-      // Example: generate random mock data for demonstration
+      // Mock data example
       const now = new Date();
       const feeds = [];
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 1000; i++) {
         feeds.push({
           created_at: new Date(now - i * 60 * 1000).toISOString(),
           field1: (Math.random() * 100).toFixed(2),
@@ -82,10 +97,9 @@
           field5: (30 + Math.random() * 50).toFixed(2),
         });
       }
-      return feeds.reverse(); // ascending order
+      return feeds.reverse();
     }
 
-    // Time range filter
     function filterByTimeRange(feeds, range) {
       const now = new Date();
       let cutoff;
@@ -121,7 +135,7 @@
       const range = document.getElementById('timeRangeSelect').value;
       const filtered = filterByTimeRange(feeds, range);
 
-      const labels = filtered.map(f => new Date(f.created_at).toLocaleTimeString());
+      const labels = filtered.map(f => new Date(f.created_at));
       const data = filtered.map(f => parseFloat(f[variable]).toFixed(2));
 
       const labelMap = {
@@ -165,18 +179,49 @@
             }
           },
           scales: {
-            x: { ticks: { color: '#ffffff' } },
-            y: { ticks: { color: '#ffffff' } }
+            x: {
+              type: 'time',
+              time: {
+                unit: chooseTimeUnit(range),
+                displayFormats: {
+                  hour: 'HH:mm',
+                  day: 'MMM d',
+                  week: 'MMM d',
+                  month: 'MMM yy'
+                }
+              },
+              ticks: {
+                color: '#ffffff',
+                maxTicksLimit: 8  // 🔹 fewer, clearer X labels
+              },
+              grid: { color: '#374151' }
+            },
+            y: {
+              ticks: { color: '#ffffff' },
+              grid: { color: '#374151' }
+            }
           }
         }
       });
+    }
+
+    // Automatically select an appropriate time unit for x-axis
+    function chooseTimeUnit(range) {
+      switch (range) {
+        case '1h': return 'minute';
+        case '1d': return 'hour';
+        case '1w': return 'day';
+        case '1m': return 'day';
+        case '1y': return 'month';
+        default: return 'hour';
+      }
     }
 
     // Event listeners
     document.getElementById('variableSelect').addEventListener('change', updateDashboard);
     document.getElementById('timeRangeSelect').addEventListener('change', updateDashboard);
 
-    // Initial load + auto refresh
+    // Initial load + auto-refresh
     updateDashboard();
     setInterval(updateDashboard, 15000);
   </script>
