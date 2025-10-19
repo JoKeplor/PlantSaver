@@ -72,6 +72,10 @@ body { background-color: #111827; }
           <option value="year">Last Year</option>
         </select>
       </div>
+      <div class="flex items-center mt-1">
+        <input type="checkbox" id="smoothToggle" class="accent-green-500 mr-2" checked>
+        <label for="smoothToggle" class="text-gray-300">Smooth line</label>
+      </div>
     </div>
 
     <canvas id="dataChart"></canvas>
@@ -104,6 +108,46 @@ function filterByTimeRange(feeds, range) {
   return feeds.filter(f => new Date(f.created_at) > cutoff);
 }
 
+// Format timestamps for better readability on X axis
+function formatTickLabel(date, range) {
+  const d = new Date(date);
+  switch (range) {
+    case "hour":
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    case "day":
+      return d.getHours() % 2 === 0 && d.getMinutes() < 5
+        ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
+    case "week":
+      return d.getHours() === 12
+        ? d.toLocaleDateString([], { weekday: "short" })
+        : "";
+    case "month":
+      return d.getDate() % 5 === 0
+        ? d.toLocaleDateString([], { day: "numeric", month: "short" })
+        : "";
+    case "year":
+      return d.getDate() === 1 && d.getMonth() % 2 === 0
+        ? d.toLocaleDateString([], { month: "short" })
+        : "";
+    default:
+      return "";
+  }
+}
+
+// Optional smoothing (moving average)
+function smoothData(data, windowSize = 5) {
+  if (!document.getElementById("smoothToggle").checked) return data;
+  const smoothed = [];
+  for (let i = 0; i < data.length; i++) {
+    const start = Math.max(0, i - windowSize);
+    const subset = data.slice(start, i + 1).map(v => parseFloat(v)).filter(v => !isNaN(v));
+    const avg = subset.reduce((a, b) => a + b, 0) / subset.length;
+    smoothed.push(avg.toFixed(2));
+  }
+  return smoothed;
+}
+
 // Update dashboard and chart
 async function updateDashboard() {
   const feeds = await getData();
@@ -116,24 +160,24 @@ async function updateDashboard() {
   document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
   document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
 
-  // Chart update
   updateChart(feeds);
 }
 
 function updateChart(feeds) {
   const variable = document.getElementById("variableSelect").value;
   const timeRange = document.getElementById("timeRange").value;
-  const filteredFeeds = filterByTimeRange(feeds, timeRange);
+  const filtered = filterByTimeRange(feeds, timeRange);
 
-  let label, color, data;
+  let label, color, rawData;
   switch (variable) {
-    case "temp": label = "Temperature (°C)"; color = "#EF4444"; data = filteredFeeds.map(f => f.field2); break;
-    case "pressure": label = "Pressure (hPa)"; color = "#3B82F6"; data = filteredFeeds.map(f => f.field3); break;
-    case "humidity": label = "Humidity (%)"; color = "#FACC15"; data = filteredFeeds.map(f => f.field4); break;
-    case "moisture": label = "Soil Moisture (%)"; color = "#10B981"; data = filteredFeeds.map(f => f.field5); break;
+    case "temp": label = "Temperature (°C)"; color = "#EF4444"; rawData = filtered.map(f => f.field2); break;
+    case "pressure": label = "Pressure (hPa)"; color = "#3B82F6"; rawData = filtered.map(f => f.field3); break;
+    case "humidity": label = "Humidity (%)"; color = "#FACC15"; rawData = filtered.map(f => f.field4); break;
+    case "moisture": label = "Soil Moisture (%)"; color = "#10B981"; rawData = filtered.map(f => f.field5); break;
   }
 
-  const labels = filteredFeeds.map(f => new Date(f.created_at).toLocaleTimeString());
+  const data = smoothData(rawData);
+  const labels = filtered.map(f => new Date(f.created_at));
   const ctx = document.getElementById('dataChart').getContext('2d');
 
   if (chart) chart.destroy();
@@ -148,7 +192,7 @@ function updateChart(feeds) {
         borderColor: color,
         tension: 0.4,
         fill: false,
-        pointRadius: 1.5
+        pointRadius: 1.2
       }]
     },
     options: {
@@ -158,13 +202,22 @@ function updateChart(feeds) {
       },
       scales: {
         x: {
+          type: 'time',
+          time: {
+            unit: 'minute',
+            displayFormats: { minute: 'HH:mm' }
+          },
           ticks: {
             color: '#ffffff',
-            maxTicksLimit: 6 // Simplify X axis
-          }
+            callback: function(value, index, values) {
+              return formatTickLabel(labels[index], timeRange);
+            }
+          },
+          grid: { color: 'rgba(255,255,255,0.1)' }
         },
         y: {
-          ticks: { color: '#ffffff' }
+          ticks: { color: '#ffffff' },
+          grid: { color: 'rgba(255,255,255,0.1)' }
         }
       }
     }
@@ -172,8 +225,9 @@ function updateChart(feeds) {
 }
 
 // Event listeners
-document.getElementById('variableSelect').addEventListener('change', updateDashboard);
-document.getElementById('timeRange').addEventListener('change', updateDashboard);
+["variableSelect", "timeRange", "smoothToggle"].forEach(id => {
+  document.getElementById(id).addEventListener('change', updateDashboard);
+});
 
 // Initial load and refresh
 updateDashboard();
