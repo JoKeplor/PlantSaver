@@ -1,229 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Smart Weather Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      background-color: #111827;
-      color: #ffffff;
-      font-family: 'Segoe UI', sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlantSaver IoT</title>
 
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
 
-    canvas {
-      background-color: #1f2937;
-      border-radius: 10px;
-      padding: 10px;
-      margin-top: 20px;
-    }
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    select {
-      background: #1f2937;
-      color: #ffffff;
-      border: 1px solid #374151;
-      border-radius: 8px;
-      padding: 6px 12px;
-      margin: 0 6px;
-      font-size: 14px;
-    }
-
-    .values {
-      margin-bottom: 20px;
-    }
-
-    .controls {
-      margin-top: 10px;
-    }
-  </style>
+<style>
+body { background-color: #111827; }
+</style>
 </head>
-<body>
-  <div class="container">
-    <h2>Smart Weather Dashboard</h2>
+<body class="font-sans text-gray-100">
 
-    <div class="values">
-      <p>🌡 Temperature: <span id="tempValue">--</span></p>
-      <p>💧 Humidity: <span id="humidityValue">--</span></p>
-      <p>📈 Pressure: <span id="pressureValue">--</span></p>
-      <p>🌿 Moisture: <span id="moistureValue">--</span></p>
-      <p id="lastUpdate">Last update: --</p>
+<!-- Top Navigation -->
+<header class="bg-gray-800 shadow-lg">
+  <div class="container mx-auto flex items-center justify-between p-4">
+    <h1 class="text-2xl font-bold text-green-400">🌱 PlantSaver Dashboard</h1>
+    <p id="lastUpdate" class="text-gray-400">Last update: --</p>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="container mx-auto p-6">
+  <!-- Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Soil Moisture</h2>
+      <p id="moistureValue" class="text-3xl font-bold text-green-400">-- %</p>
     </div>
-
-    <div class="controls">
-      <label for="variableSelect">Variable:</label>
-      <select id="variableSelect">
-        <option value="field2">Temperature (°C)</option>
-        <option value="field3">Pressure (hPa)</option>
-        <option value="field4">Humidity (%)</option>
-        <option value="field5">Soil Moisture (%)</option>
-      </select>
-
-      <label for="timeRangeSelect">Time Range:</label>
-      <select id="timeRangeSelect">
-        <option value="1h">Last Hour</option>
-        <option value="1d" selected>Last Day</option>
-        <option value="1w">Last Week</option>
-        <option value="1m">Last Month</option>
-        <option value="1y">Last Year</option>
-      </select>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Temperature</h2>
+      <p id="tempValue" class="text-3xl font-bold text-red-400">-- °C</p>
     </div>
-
-    <canvas id="weatherChart" width="900" height="400"></canvas>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Pressure</h2>
+      <p id="pressureValue" class="text-3xl font-bold text-blue-400">-- hPa</p>
+    </div>
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2">Humidity</h2>
+      <p id="humidityValue" class="text-3xl font-bold text-yellow-400">-- %</p>
+    </div>
   </div>
 
-  <script>
-    let weatherChart;
+  <!-- Chart Section -->
+  <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+    <h2 class="text-xl font-semibold mb-4">Environmental Data</h2>
 
-    // Replace with your real API
-    async function getData() {
-      // Mock data example
-      const now = new Date();
-      const feeds = [];
-      for (let i = 0; i < 1000; i++) {
-        feeds.push({
-          created_at: new Date(now - i * 60 * 1000).toISOString(),
-          field1: (Math.random() * 100).toFixed(2),
-          field2: (20 + Math.random() * 10).toFixed(2),
-          field3: (1000 + Math.random() * 10).toFixed(2),
-          field4: (40 + Math.random() * 20).toFixed(2),
-          field5: (30 + Math.random() * 50).toFixed(2),
-        });
-      }
-      return feeds.reverse();
-    }
+    <!-- Selection dropdowns -->
+    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+      <div>
+        <label for="variableSelect" class="block text-gray-300 mb-1">Select Variable</label>
+        <select id="variableSelect" class="bg-gray-700 text-gray-200 p-2 rounded-lg">
+          <option value="temp">Temperature (°C)</option>
+          <option value="pressure">Pressure (hPa)</option>
+          <option value="humidity">Humidity (%)</option>
+          <option value="moisture">Soil Moisture (%)</option>
+        </select>
+      </div>
+      <div>
+        <label for="timeRange" class="block text-gray-300 mb-1">Select Time Range</label>
+        <select id="timeRange" class="bg-gray-700 text-gray-200 p-2 rounded-lg">
+          <option value="hour">Last Hour</option>
+          <option value="day">Last Day</option>
+          <option value="week" selected>Last Week</option>
+          <option value="month">Last Month</option>
+          <option value="year">Last Year</option>
+        </select>
+      </div>
+    </div>
 
-    function filterByTimeRange(feeds, range) {
-      const now = new Date();
-      let cutoff;
+    <canvas id="dataChart"></canvas>
+  </div>
+</main>
 
-      switch (range) {
-        case '1h': cutoff = new Date(now - 60 * 60 * 1000); break;
-        case '1d': cutoff = new Date(now - 24 * 60 * 60 * 1000); break;
-        case '1w': cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000); break;
-        case '1m': cutoff = new Date(now.setMonth(now.getMonth() - 1)); break;
-        case '1y': cutoff = new Date(now.setFullYear(now.getFullYear() - 1)); break;
-        default: cutoff = new Date(0);
-      }
+<script>
+const apiKey = "EAG5JSOPGG6TUX2V";
+const channelID = "3110199";
+const results = 100000;
+let chart;
 
-      return feeds.filter(f => new Date(f.created_at) >= cutoff);
-    }
+// Fetch data from ThingSpeak
+async function getData() {
+  const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`);
+  const data = await res.json();
+  return data.feeds;
+}
 
-    async function updateDashboard() {
-      const feeds = await getData();
-      const latest = feeds[feeds.length - 1];
+function filterByTimeRange(feeds, range) {
+  const now = new Date();
+  let cutoff;
+  switch (range) {
+    case "hour": cutoff = new Date(now - 60 * 60 * 1000); break;
+    case "day": cutoff = new Date(now - 24 * 60 * 60 * 1000); break;
+    case "week": cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000); break;
+    case "month": cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000); break;
+    case "year": cutoff = new Date(now - 365 * 24 * 60 * 60 * 1000); break;
+  }
+  return feeds.filter(f => new Date(f.created_at) > cutoff);
+}
 
-      // Update live values
-      document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
-      document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
-      document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
-      document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
-      document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
+// Update dashboard and chart
+async function updateDashboard() {
+  const feeds = await getData();
+  const latest = feeds[feeds.length - 1];
 
-      updateChart(feeds);
-    }
+  // Update live values
+  document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
+  document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
+  document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
+  document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
+  document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
 
-    function updateChart(feeds) {
-      const variable = document.getElementById('variableSelect').value;
-      const range = document.getElementById('timeRangeSelect').value;
-      const filtered = filterByTimeRange(feeds, range);
+  // Chart update
+  updateChart(feeds);
+}
 
-      const labels = filtered.map(f => new Date(f.created_at));
-      const data = filtered.map(f => parseFloat(f[variable]).toFixed(2));
+function updateChart(feeds) {
+  const variable = document.getElementById("variableSelect").value;
+  const timeRange = document.getElementById("timeRange").value;
+  const filteredFeeds = filterByTimeRange(feeds, timeRange);
 
-      const labelMap = {
-        field2: 'Temperature (°C)',
-        field3: 'Pressure (hPa)',
-        field4: 'Humidity (%)',
-        field5: 'Soil Moisture (%)'
-      };
-      const colorMap = {
-        field2: '#EF4444',
-        field3: '#3B82F6',
-        field4: '#FACC15',
-        field5: '#10B981'
-      };
+  let label, color, data;
+  switch (variable) {
+    case "temp": label = "Temperature (°C)"; color = "#EF4444"; data = filteredFeeds.map(f => f.field2); break;
+    case "pressure": label = "Pressure (hPa)"; color = "#3B82F6"; data = filteredFeeds.map(f => f.field3); break;
+    case "humidity": label = "Humidity (%)"; color = "#FACC15"; data = filteredFeeds.map(f => f.field4); break;
+    case "moisture": label = "Soil Moisture (%)"; color = "#10B981"; data = filteredFeeds.map(f => f.field5); break;
+  }
 
-      const ctx = document.getElementById('weatherChart').getContext('2d');
-      if (weatherChart) weatherChart.destroy();
+  const labels = filteredFeeds.map(f => new Date(f.created_at).toLocaleTimeString());
+  const ctx = document.getElementById('dataChart').getContext('2d');
 
-      weatherChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: labelMap[variable],
-            data,
-            borderColor: colorMap[variable],
-            backgroundColor: colorMap[variable] + '33',
-            fill: true,
-            tension: 0.4,
-            pointRadius: data.length > 100 ? 0 : 2
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { labels: { color: '#ffffff' } },
-            tooltip: {
-              callbacks: {
-                label: ctx => `${ctx.parsed.y}`
-              }
-            }
-          },
-          scales: {
-            x: {
-              type: 'time',
-              time: {
-                unit: chooseTimeUnit(range),
-                displayFormats: {
-                  hour: 'HH:mm',
-                  day: 'MMM d',
-                  week: 'MMM d',
-                  month: 'MMM yy'
-                }
-              },
-              ticks: {
-                color: '#ffffff',
-                maxTicksLimit: 8  // 🔹 fewer, clearer X labels
-              },
-              grid: { color: '#374151' }
-            },
-            y: {
-              ticks: { color: '#ffffff' },
-              grid: { color: '#374151' }
-            }
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        borderColor: color,
+        tension: 0.4,
+        fill: false,
+        pointRadius: 1.5
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#ffffff' } }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#ffffff',
+            maxTicksLimit: 6 // Simplify X axis
           }
+        },
+        y: {
+          ticks: { color: '#ffffff' }
         }
-      });
-    }
-
-    // Automatically select an appropriate time unit for x-axis
-    function chooseTimeUnit(range) {
-      switch (range) {
-        case '1h': return 'minute';
-        case '1d': return 'hour';
-        case '1w': return 'day';
-        case '1m': return 'day';
-        case '1y': return 'month';
-        default: return 'hour';
       }
     }
+  });
+}
 
-    // Event listeners
-    document.getElementById('variableSelect').addEventListener('change', updateDashboard);
-    document.getElementById('timeRangeSelect').addEventListener('change', updateDashboard);
+// Event listeners
+document.getElementById('variableSelect').addEventListener('change', updateDashboard);
+document.getElementById('timeRange').addEventListener('change', updateDashboard);
 
-    // Initial load + auto-refresh
-    updateDashboard();
-    setInterval(updateDashboard, 15000);
-  </script>
+// Initial load and refresh
+updateDashboard();
+setInterval(updateDashboard, 30000);
+</script>
 </body>
 </html>
