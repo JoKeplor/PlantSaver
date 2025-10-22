@@ -122,19 +122,6 @@ async function getData() {
   return data.feeds;
 }
 
-function filterByTimeRange(feeds, range) {
-  const now = new Date();
-  let cutoff;
-  switch (range) {
-    case "hour": cutoff = new Date(now - 60 * 60 * 1000); break;
-    case "day": cutoff = new Date(now - 24 * 60 * 60 * 1000); break;
-    case "week": cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000); break;
-    case "month": cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000); break;
-    case "year": cutoff = new Date(now - 365 * 24 * 60 * 60 * 1000); break;
-  }
-  return feeds.filter(f => new Date(f.created_at) > cutoff);
-}
-
 // Update dashboard and chart
 async function updateDashboard() {
   const feeds = await getData();
@@ -155,8 +142,6 @@ async function updateDashboard() {
 
 function updateChart(feeds) {
   const variable = document.getElementById("variableSelect").value;
-  const timeRange = document.getElementById("timeRange").value;
-  const filtered = filterByTimeRange(feeds, timeRange);
 
   let label, color, rawData;
   switch (variable) {
@@ -215,7 +200,7 @@ function updateChart(feeds) {
 }
 
 // Event listeners
-["variableSelect", "timeRange"].forEach(id => {
+["variableSelect"].forEach(id => {
   document.getElementById(id).addEventListener('change', updateDashboard);
 });
 
