@@ -78,33 +78,6 @@ body { background-color: #111827; }
   <!-- Chart Section -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
     <h2 class="text-xl font-semibold mb-4">Tu te rends comptes ? On a aussi accès à l'historique !</h2>
-
-    <!-- Selection dropdowns -->
-    <div class="flex flex-col sm:flex-row gap-4 mb-6">
-      <div>
-        <label for="variableSelect" class="block text-gray-300 mb-1">Select Variable</label>
-        <select id="variableSelect" class="bg-gray-700 text-gray-200 p-2 rounded-lg">
-          <option value="temp">Température</option>
-          <option value="pressure">Pression</option>
-          <option value="humidity">Hygrométrie</option>
-          <option value="iaq">IAQ</option>
-          <option value="iaqp">IAQ précision</option>
-          <option value="co2">CO2</option>
-          <option value="voc">VOC</option>
-        </select>
-      </div>
-      <div>
-        <label for="timeRange" class="block text-gray-300 mb-1">Select Time Range</label>
-        <select id="timeRange" class="bg-gray-700 text-gray-200 p-2 rounded-lg">
-          <option value="hour">Heure</option>
-          <option value="day">Jour</option>
-          <option value="week" selected>Semaine</option>
-          <option value="month">Mois</option>
-          <option value="year">Année</option>
-        </select>
-      </div>
-    </div>
-
     <canvas id="dataChart"></canvas>
   </div>
 </main>
