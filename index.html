@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,8 +75,8 @@ body { background-color: #111827; }
 
   <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <div class="flex items-center justify-between mb-4 gap-4">
-      <h2 class="text-xl font-semibold">Tu te rends comptes ? On a aussi accès à l'historique !</h2>
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+      <h2 class="text-xl font-semibold">Historique</h2>
       <div class="flex items-center space-x-2">
         <label for="variableSelect" class="text-gray-300">Tracé :</label>
         <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
@@ -87,6 +87,16 @@ body { background-color: #111827; }
           <option value="field5">IAQ précision</option>
           <option value="field6">CO2 (ppm)</option>
           <option value="field7">COV (ppm)</option>
+        </select>
+
+        <label for="timeRangeSelect" class="text-gray-300 ml-2">Période :</label>
+        <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
+          <option value="1h">Dernière heure</option>
+          <option value="24h" selected>Dernières 24h</option>
+          <option value="7d">Derniers 7 jours</option>
+          <option value="30d">Derniers 30 jours</option>
+          <option value="1y">Dernière année</option>
+          <option value="all">Tout</option>
         </select>
       </div>
     </div>
@@ -104,10 +114,12 @@ body { background-color: #111827; }
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-// Keep a reasonable upper limit; ThingSpeak may not return huge results reliably.
-// You can increase if you know your channel supports it, but we'll downsample client-side if needed.
+// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
+// We fetch once and filter client-side for responsiveness. Increase if needed.
 const results = 8000;
 let chart = null;
+let cachedFeeds = null; // store fetched feeds
+
 const maxPoints = 2000; // downsample to at most this many points for performance
 
 const fieldLabels = {
@@ -120,12 +132,54 @@ const fieldLabels = {
   field7: {label: "COV (ppm)", color: "rgb(6,182,212)"}
 };
 
+const rangeDurationsMs = {
+  '1h': 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+  '1y': 365 * 24 * 60 * 60 * 1000,
+  'all': Infinity
+};
+
 async function getData() {
+  if (cachedFeeds) return cachedFeeds;
   const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
   const data = await res.json();
-  return data.feeds || [];
+  cachedFeeds = data.feeds || [];
+  return cachedFeeds;
+}
+
+function filterFeedsByRange(feeds, rangeKey) {
+  if (!feeds || !feeds.length) return [];
+  const now = Date.now();
+  const dur = rangeDurationsMs[rangeKey] ?? Infinity;
+  if (!isFinite(dur)) return feeds.slice(); // 'all' -> return all
+  const cutoff = now - dur;
+  // feeds are chronological (old->new); we can find start index
+  const res = feeds.filter(f => {
+    if (!f.created_at) return false;
+    const t = Date.parse(f.created_at);
+    return !isNaN(t) && t >= cutoff;
+  });
+  return res;
+}
+
+function extractSeries(feeds, fieldKey) {
+  const labels = [];
+  const values = [];
+  for (const f of feeds) {
+    if (!f.created_at) continue;
+    const raw = f[fieldKey];
+    const v = raw !== null && raw !== undefined ? parseFloat(raw) : NaN;
+    if (!isFinite(v)) continue;
+    const dt = new Date(f.created_at);
+    if (isNaN(dt)) continue;
+    labels.push(dt);
+    values.push(v);
+  }
+  return { labels, values };
 }
 
 function downsample(labels, values) {
@@ -141,67 +195,92 @@ function downsample(labels, values) {
   return { labels: newLabels, values: newValues };
 }
 
-function createOrUpdateChart(labels, values, labelName, color) {
+function getTimeScaleConfig(rangeKey) {
+  // return options for Chart.js time scale adapted to the selected range
+  switch (rangeKey) {
+    case '1h':
+      return {
+        unit: 'minute',
+        displayFormats: { minute: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
+    case '24h':
+      return {
+        unit: 'hour',
+        displayFormats: { hour: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
+    case '7d':
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 7 }
+      };
+    case '30d':
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 8 }
+      };
+    case '1y':
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 12 }
+      };
+    default: // 'all' or fallback
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 10 }
+      };
+  }
+}
+
+function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
   const ctx = document.getElementById('dataChart').getContext('2d');
+  const scaleCfg = getTimeScaleConfig(rangeKey);
+
+  const dataset = {
+    label: labelName,
+    data: values.map((v, i) => ({ x: labels[i], y: v })),
+    borderColor: color,
+    backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
+    pointRadius: 0,
+    hitRadius: 6,
+    borderWidth: 2,
+    tension: 0.25,
+  };
 
   if (!chart) {
     chart = new Chart(ctx, {
       type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: labelName,
-          data: values,
-          borderColor: color,
-          backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
-          pointRadius: 0,         // hide individual points for a cleaner mobile view
-          hitRadius: 6,          // keep tooltips easy to trigger on touch
-          borderWidth: 2,
-          tension: 0.25,
-        }]
-      },
+      data: { datasets: [dataset] },
       options: {
         responsive: true,
-        maintainAspectRatio: false, // allow CSS container height to control chart height
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: false },
         scales: {
           x: {
             type: 'time',
             time: {
+              unit: scaleCfg.unit,
               tooltipFormat: 'PPpp',
-              displayFormats: {
-                hour: 'yyyy-MM-dd HH:mm',
-                day: 'yyyy-MM-dd'
-              }
+              displayFormats: scaleCfg.displayFormats
             },
-            ticks: {
+            ticks: Object.assign({
               color: '#cbd5e1',
-              maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: 6
-            },
-            grid: {
-              color: 'rgba(148,163,184,0.06)'
-            }
+              autoSkip: true
+            }, scaleCfg.ticks),
+            grid: { color: 'rgba(148,163,184,0.06)' }
           },
           y: {
-            ticks: {
-              color: '#cbd5e1'
-            },
-            grid: {
-              color: 'rgba(148,163,184,0.06)'
-            }
+            ticks: { color: '#cbd5e1' },
+            grid: { color: 'rgba(148,163,184,0.06)' }
           }
         },
         plugins: {
-          legend: {
-            labels: {
-              color: '#e2e8f0'
-            }
-          },
+          legend: { labels: { color: '#e2e8f0' } },
           tooltip: {
             backgroundColor: '#1f2937',
             titleColor: '#fff',
@@ -209,45 +288,30 @@ function createOrUpdateChart(labels, values, labelName, color) {
             padding: 8
           }
         },
-        elements: {
-          line: {
-            spanGaps: true
-          }
-        }
+        elements: { line: { spanGaps: true } }
       }
     });
   } else {
-    // Replace dataset
-    chart.data.labels = labels;
-    chart.data.datasets = [{
-      label: labelName,
-      data: values,
-      borderColor: color,
-      backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
-      pointRadius: 0,
-      hitRadius: 6,
-      borderWidth: 2,
-      tension: 0.25,
-    }];
+    // Update dataset and x scale config
+    chart.data.datasets = [dataset];
+    // update x scale config
+    chart.options.scales.x.time.unit = scaleCfg.unit;
+    chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
+    chart.options.scales.x.ticks = Object.assign(chart.options.scales.x.ticks || {}, scaleCfg.ticks);
     chart.update();
   }
 }
 
-function extractSeries(feeds, fieldKey) {
-  // feeds is chronological (old -> new) according to ThingSpeak
-  const labels = [];
-  const values = [];
-  for (const f of feeds) {
-    if (!f.created_at) continue;
-    const raw = f[fieldKey];
-    const v = raw !== null && raw !== undefined ? parseFloat(raw) : NaN;
-    if (!isFinite(v)) continue;
-    const dt = new Date(f.created_at);
-    if (isNaN(dt)) continue;
-    labels.push(dt);
-    values.push(v);
+function plotFieldForRange(feeds, fieldKey, rangeKey) {
+  const filtered = filterFeedsByRange(feeds, rangeKey);
+  const { labels, values } = extractSeries(filtered, fieldKey);
+  if (labels.length === 0) {
+    // empty chart
+    createOrUpdateChart([], [], fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
+    return;
   }
-  return { labels, values };
+  const ds = downsample(labels, values);
+  createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
 }
 
 async function updateDashboard() {
@@ -275,10 +339,10 @@ async function updateDashboard() {
       document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
     }
 
-    // Update chart for currently selected variable
-    const select = document.getElementById('variableSelect');
-    const selectedField = select ? select.value : 'field1';
-    plotField(feeds, selectedField);
+    // initial chart plot using current controls
+    const variable = document.getElementById('variableSelect')?.value || 'field1';
+    const range = document.getElementById('timeRangeSelect')?.value || '24h';
+    plotFieldForRange(feeds, variable, range);
 
   } catch (err) {
     console.error('Failed to update dashboard:', err);
@@ -286,35 +350,41 @@ async function updateDashboard() {
   }
 }
 
-function plotField(feeds, fieldKey) {
-  const { labels, values } = extractSeries(feeds, fieldKey);
-  if (labels.length === 0) {
-    createOrUpdateChart([], [], fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)');
-    return;
-  }
-
-  // Downsample if needed (preserves chronological order)
-  const ds = downsample(labels, values);
-  createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)');
-}
-
-// Attach event to variable selector
+// Attach events to controls
 const variableSelectEl = document.getElementById('variableSelect');
+const timeRangeSelectEl = document.getElementById('timeRangeSelect');
+
 if (variableSelectEl) {
   variableSelectEl.addEventListener('change', async () => {
     try {
-      // Re-fetch recent data and re-plot chosen field (keeps data fresh)
       const feeds = await getData();
-      plotField(feeds, variableSelectEl.value);
+      const range = timeRangeSelectEl?.value || '24h';
+      plotFieldForRange(feeds, variableSelectEl.value, range);
     } catch (err) {
       console.error('Error fetching data for chart:', err);
     }
   });
 }
 
-// Initial load and periodic refresh
+if (timeRangeSelectEl) {
+  timeRangeSelectEl.addEventListener('change', async () => {
+    try {
+      const feeds = await getData();
+      const variable = variableSelectEl?.value || 'field1';
+      plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
+    } catch (err) {
+      console.error('Error fetching data for chart:', err);
+    }
+  });
+}
+
+// Initial load and periodic refresh (keeps cache fresh)
 updateDashboard();
-setInterval(updateDashboard, 30000);
+setInterval(async () => {
+  // refresh cachedFeeds so range-filtering uses recent data
+  cachedFeeds = null;
+  await updateDashboard();
+}, 30000);
 </script>
 </body>
 </html>
