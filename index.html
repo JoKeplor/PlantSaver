@@ -103,10 +103,6 @@ body { background-color: #111827; }
           <option value="year">Année</option>
         </select>
       </div>
-      <div class="flex items-center mt-1">
-        <input type="checkbox" id="smoothToggle" class="accent-green-500 mr-2" checked>
-        <label for="smoothToggle" class="text-gray-300">Smooth line</label>
-      </div>
     </div>
 
     <canvas id="dataChart"></canvas>
@@ -197,7 +193,7 @@ function updateChart(feeds) {
     case "iaq": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => f.field4); break;
     case "iaqp": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => f.field5); break;
     case "co2": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => f.field6); break;
-    case "cov": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
+    case "voc": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
   }
 
   const labels = filtered.map(f => new Date(f.created_at));
@@ -211,7 +207,7 @@ function updateChart(feeds) {
       labels,
       datasets: [{
         label,
-        rawdata,
+        data: rawData,
         borderColor: color,
         tension: 0.4,
         fill: false,
