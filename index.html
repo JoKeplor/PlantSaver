@@ -46,7 +46,7 @@ body { background-color: #111827; }
     <!-- Humidite -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Hygrométrie</h2>
-      <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- %</p>
+      <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-teal-400">-- %</p>
     </div>
 
     <!-- Indice de qualite de l'air -->
@@ -201,10 +201,13 @@ function updateChart(feeds) {
 
   let label, color, rawData;
   switch (variable) {
-    case "temp": label = "Temperature (°C)"; color = "#EF4444"; rawData = filtered.map(f => f.field2); break;
-    case "pressure": label = "Pressure (hPa)"; color = "#3B82F6"; rawData = filtered.map(f => f.field3); break;
-    case "humidity": label = "Humidity (%)"; color = "#FACC15"; rawData = filtered.map(f => f.field4); break;
-    case "moisture": label = "Soil Moisture (%)"; color = "#10B981"; rawData = filtered.map(f => f.field5); break;
+    case "temp": label = "Température (°C)"; color = "#4ade80"; rawData = filtered.map(f => f.field1); break;
+    case "pressure": label = "Pression (hPa)"; color = "#f87171"; rawData = filtered.map(f => f.field2); break;
+    case "humidity": label = "Hygrométrie (%)"; color = "#2dd4bf"; rawData = filtered.map(f => f.field3); break;
+    case "moisture": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => f.field4); break;
+    case "moisture": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => f.field5); break;
+    case "moisture": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => f.field6); break;
+    case "moisture": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
   }
 
   const data = smoothData(rawData);
