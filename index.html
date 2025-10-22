@@ -109,7 +109,8 @@ async function updateDashboard() {
   document.getElementById('co2value').innerText = parseFloat(latest.field6).toFixed(2) + " ppm";
   document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
   document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
-
+}
+  
 // Event listeners
 ["variableSelect"].forEach(id => {
   document.getElementById(id).addEventListener('change', updateDashboard);
