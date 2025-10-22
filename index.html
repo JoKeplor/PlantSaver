@@ -90,33 +90,48 @@ let chart;
 
 // Fetch data from ThingSpeak
 async function getData() {
-  const res = await fetch(`https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`);
+  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
   const data = await res.json();
   return data.feeds;
 }
 
 // Update dashboard and chart
 async function updateDashboard() {
-  const feeds = await getData();
-  const latest = feeds[feeds.length - 1];
+  try {
+    const feeds = await getData();
+    if (!Array.isArray(feeds) || feeds.length === 0) {
+      document.getElementById('lastUpdate').innerText = "Aucune donnée disponible.";
+      return;
+    }
 
-  // Update live values
-  document.getElementById('tempValue').innerText = parseFloat(latest.field1).toFixed(2) + " °C";
-  document.getElementById('pressureValue').innerText = parseFloat(latest.field2).toFixed(2) + " hPa";
-  document.getElementById('moistureValue').innerText = parseFloat(latest.field3).toFixed(2) + " %";
-  document.getElementById('iaqValue').innerText = parseFloat(latest.field4).toFixed(2);
-  document.getElementById('iaqprecisionValue').innerText = parseFloat(latest.field5).toFixed(2);
-  document.getElementById('co2value').innerText = parseFloat(latest.field6).toFixed(2) + " ppm";
-  document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
-  document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
+    const latest = feeds[feeds.length - 1];
+
+    // Defensive checks before updating DOM
+    document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
+    document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
+    document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
+    document.getElementById('iaqValue').innerText = isFinite(parseFloat(latest.field4)) ? parseFloat(latest.field4).toFixed(2) : "--";
+    document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(2) : "--";
+    document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(2) + " ppm" : "--";
+    document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(2) + " ppm" : "--";
+
+    if (latest.created_at) {
+      document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
+    } else {
+      document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
+    }
+
+    // (Optional) update chart here if you want to visualize history
+    // Example placeholder: initialize chart once and update datasets on subsequent calls
+  } catch (err) {
+    console.error('Failed to update dashboard:', err);
+    document.getElementById('lastUpdate').innerText = "Erreur lors de la récupération des données.";
+  }
 }
-  
-// Event listeners
-["variableSelect"].forEach(id => {
-  document.getElementById(id).addEventListener('change', updateDashboard);
-});
 
-// Initial load and refresh
+// Initial load and periodic refresh
 updateDashboard();
 setInterval(updateDashboard, 30000);
 </script>
