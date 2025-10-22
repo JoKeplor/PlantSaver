@@ -137,68 +137,6 @@ async function updateDashboard() {
   document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
   document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
 
-  updateChart(feeds);
-}
-
-function updateChart(feeds) {
-  const variable = document.getElementById("variableSelect").value;
-
-  let label, color, rawData;
-  switch (variable) {
-    case "temp": label = "Température (°C)"; color = "#4ade80"; rawData = filtered.map(f => parseFloat(f.field1)); break;
-    case "pressure": label = "Pression (hPa)"; color = "#f87171"; rawData = filtered.map(f => parseFloat(f.field2)); break;
-    case "humidity": label = "Hygrométrie (%)"; color = "#2dd4bf"; rawData = filtered.map(f => parseFloat(f.field3)); break;
-    case "iaq": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => parseFloat(f.field4)); break;
-    case "iaqp": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => parseFloat(f.field5)); break;
-    case "co2": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => parseFloat(f.field6)); break;
-    case "voc": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => parseFloat(f.field7)); break;
-  }
-
-  const labels = filtered.map(f => new Date(f.created_at));
-  const ctx = document.getElementById('dataChart').getContext('2d');
-
-  if (chart) chart.destroy();
-
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label,
-        data: rawData,
-        borderColor: color,
-        tension: 0.4,
-        fill: false,
-        pointRadius: 1.2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { labels: { color: '#ffffff' } }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'minute',
-            displayFormats: { minute: 'HH:mm' }
-          },
-          ticks: {
-            color: '#ffffff'
-            }
-          },
-          grid: { color: 'rgba(255,255,255,0.1)' }
-        },
-        y: {
-          ticks: { color: '#ffffff' },
-          grid: { color: 'rgba(255,255,255,0.1)' }
-        }
-      }
-    }
-  });
-}
-
 // Event listeners
 ["variableSelect"].forEach(id => {
   document.getElementById(id).addEventListener('change', updateDashboard);
