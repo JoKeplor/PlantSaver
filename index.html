@@ -163,19 +163,6 @@ function formatTickLabel(date, range) {
   }
 }
 
-// Optional smoothing (moving average)
-function smoothData(data, windowSize = 5) {
-  if (!document.getElementById("smoothToggle").checked) return data;
-  const smoothed = [];
-  for (let i = 0; i < data.length; i++) {
-    const start = Math.max(0, i - windowSize);
-    const subset = data.slice(start, i + 1).map(v => parseFloat(v)).filter(v => !isNaN(v));
-    const avg = subset.reduce((a, b) => a + b, 0) / subset.length;
-    smoothed.push(avg.toFixed(2));
-  }
-  return smoothed;
-}
-
 // Update dashboard and chart
 async function updateDashboard() {
   const feeds = await getData();
@@ -186,9 +173,9 @@ async function updateDashboard() {
   document.getElementById('pressureValue').innerText = parseFloat(latest.field2).toFixed(2) + " hPa";
   document.getElementById('moistureValue').innerText = parseFloat(latest.field3).toFixed(2) + " %";
   document.getElementById('iaqValue').innerText = parseFloat(latest.field4).toFixed(2);
-   document.getElementById('iaqprecisionValue').innerText = parseFloat(latest.field5).toFixed(2);
-   document.getElementById('co2value').innerText = parseFloat(latest.field6).toFixed(2) + " ppm";
-   document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
+  document.getElementById('iaqprecisionValue').innerText = parseFloat(latest.field5).toFixed(2);
+  document.getElementById('co2value').innerText = parseFloat(latest.field6).toFixed(2) + " ppm";
+  document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
   document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
 
   updateChart(feeds);
@@ -210,7 +197,6 @@ function updateChart(feeds) {
     case "cov": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
   }
 
-  const data = smoothData(rawData);
   const labels = filtered.map(f => new Date(f.created_at));
   const ctx = document.getElementById('dataChart').getContext('2d');
 
