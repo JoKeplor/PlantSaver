@@ -31,43 +31,43 @@ body { background-color: #111827; }
 <!-- Cards Grid -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     
-    <!-- Soil Moisture -->
+    <!-- Temperature -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Température</h2>
       <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-green-400">-- °C</p>
     </div>
 
-    <!-- Temperature -->
+    <!-- Pression -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Pression</h2>
       <p id="tempValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- hPa</p>
     </div>
 
-    <!-- Pressure -->
+    <!-- Humidite -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Hygrométrie</h2>
+      <p id="tempValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- %</p>
+    </div>
+
+    <!-- Indice de qualite de l'air -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
       <p id="pressureValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</p>
     </div>
 
-    <!-- Humidity -->
+    <!-- precision de l'indice IAQ -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
       <p id="humidityValue" class="text-2xl sm:text-3xl font-bold text-yellow-400">--</p>
     </div>
 
-    <!-- Light Intensity -->
-    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Light Intensity</h2>
-      <p id="lightValue" class="text-2xl sm:text-3xl font-bold text-purple-400">-- lx</p>
-    </div>
-
-    <!-- pH Level -->
+    <!-- co2 -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Quantité de CO2</h2>
       <p id="phValue" class="text-2xl sm:text-3xl font-bold text-pink-400">--</p>
     </div>
 
-    <!-- Rain Detection -->
+    <!-- cov -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
       <p id="rainValue" class="text-2xl sm:text-3xl font-bold text-cyan-400">--</p>
