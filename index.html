@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PlantSaver IoT</title>
+<title>Le Micro Climat du Balcon de Jonathan - IoT</title>
 
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -20,36 +20,64 @@ body { background-color: #111827; }
 <!-- Top Navigation -->
 <header class="bg-gray-800 shadow-lg">
   <div class="container mx-auto flex items-center justify-between p-4">
-    <h1 class="text-2xl font-bold text-green-400">🌱 PlantSaver Dashboard</h1>
-    <p id="lastUpdate" class="text-gray-400">Last update: --</p>
+    <h1 class="text-2xl font-bold text-green-400">Mais alors quel temps fait-il sur le balcon de Jonathan?</h1>
+    <p id="lastUpdate" class="text-gray-400">Les dernières données météorologiques datent de : --</p>
   </div>
 </header>
 
 <!-- Main Content -->
 <main class="container mx-auto p-6">
   <!-- Cards -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Soil Moisture</h2>
-      <p id="moistureValue" class="text-3xl font-bold text-green-400">-- %</p>
+<!-- Cards Grid -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    
+    <!-- Soil Moisture -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Température</h2>
+      <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-green-400">-- °C</p>
     </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Temperature</h2>
-      <p id="tempValue" class="text-3xl font-bold text-red-400">-- °C</p>
+
+    <!-- Temperature -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Pression</h2>
+      <p id="tempValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- hPa</p>
     </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Pressure</h2>
-      <p id="pressureValue" class="text-3xl font-bold text-blue-400">-- hPa</p>
+
+    <!-- Pressure -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
+      <p id="pressureValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</p>
     </div>
-    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2">Humidity</h2>
-      <p id="humidityValue" class="text-3xl font-bold text-yellow-400">-- %</p>
+
+    <!-- Humidity -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
+      <p id="humidityValue" class="text-2xl sm:text-3xl font-bold text-yellow-400">--</p>
     </div>
+
+    <!-- Light Intensity -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Light Intensity</h2>
+      <p id="lightValue" class="text-2xl sm:text-3xl font-bold text-purple-400">-- lx</p>
+    </div>
+
+    <!-- pH Level -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Quantité de CO2</h2>
+      <p id="phValue" class="text-2xl sm:text-3xl font-bold text-pink-400">--</p>
+    </div>
+
+    <!-- Rain Detection -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
+      <p id="rainValue" class="text-2xl sm:text-3xl font-bold text-cyan-400">--</p>
+    </div>
+
   </div>
 
   <!-- Chart Section -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Environmental Data</h2>
+    <h2 class="text-xl font-semibold mb-4">Tu te rends comptes ? On a aussi accès aux détails !</h2>
 
     <!-- Selection dropdowns -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
