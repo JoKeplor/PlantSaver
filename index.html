@@ -77,7 +77,7 @@ body { background-color: #111827; }
 
   <!-- Chart Section -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Tu te rends comptes ? On a aussi accès aux détails !</h2>
+    <h2 class="text-xl font-semibold mb-4">Tu te rends comptes ? On a aussi accès à l'historique !</h2>
 
     <!-- Selection dropdowns -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
@@ -187,13 +187,13 @@ function updateChart(feeds) {
 
   let label, color, rawData;
   switch (variable) {
-    case "temp": label = "Température (°C)"; color = "#4ade80"; rawData = filtered.map(f => f.field1); break;
-    case "pressure": label = "Pression (hPa)"; color = "#f87171"; rawData = filtered.map(f => f.field2); break;
-    case "humidity": label = "Hygrométrie (%)"; color = "#2dd4bf"; rawData = filtered.map(f => f.field3); break;
-    case "iaq": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => f.field4); break;
-    case "iaqp": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => f.field5); break;
-    case "co2": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => f.field6); break;
-    case "voc": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
+    case "temp": label = "Température (°C)"; color = "#4ade80"; rawData = filtered.map(f => parseFloat(f.field1)); break;
+    case "pressure": label = "Pression (hPa)"; color = "#f87171"; rawData = filtered.map(f => parseFloat(f.field2)); break;
+    case "humidity": label = "Hygrométrie (%)"; color = "#2dd4bf"; rawData = filtered.map(f => parseFloat(f.field3)); break;
+    case "iaq": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => parseFloat(f.field4)); break;
+    case "iaqp": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => parseFloat(f.field5)); break;
+    case "co2": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => parseFloat(f.field6)); break;
+    case "voc": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => parseFloat(f.field7)); break;
   }
 
   const labels = filtered.map(f => new Date(f.created_at));
