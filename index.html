@@ -13,7 +13,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 
 <style>
-body { background-color: #111827; }
+  body { background-color: #111827; }
+  /* Ensure the controls never overlap the chart on small screens */
+  .controls-panel { z-index: 5; }
 </style>
 </head>
 <body class="font-sans text-gray-100">
@@ -30,43 +32,36 @@ body { background-color: #111827; }
 <main class="container mx-auto p-6 space-y-6">
   <!-- Cards Grid -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <!-- Temperature -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Température</h2>
       <p id="tempValue" class="text-2xl sm:text-3xl font-bold text-green-400">-- °C</p>
     </div>
 
-    <!-- Pression -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Pression</h2>
       <p id="pressureValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- hPa</p>
     </div>
 
-    <!-- Humidite -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Hygrométrie</h2>
       <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-teal-400">-- %</p>
     </div>
 
-    <!-- Indice de qualite de l'air -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
       <p id="iaqValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</p>
     </div>
 
-    <!-- precision de l'indice IAQ -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
       <p id="iaqprecisionValue" class="text-2xl sm:text-3xl font-bold text-yellow-400">--</p>
     </div>
 
-    <!-- co2 -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Quantité de CO2</h2>
       <p id="co2value" class="text-2xl sm:text-3xl font-bold text-pink-400">--</p>
     </div>
 
-    <!-- cov -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
       <p id="vocValue" class="text-2xl sm:text-3xl font-bold text-cyan-400">--</p>
@@ -75,35 +70,51 @@ body { background-color: #111827; }
 
   <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-      <h2 class="text-xl font-semibold">Historique</h2>
-      <div class="flex items-center space-x-2">
-        <label for="variableSelect" class="text-gray-300">Tracé :</label>
-        <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
-          <option value="field1" selected>Température (°C)</option>
-          <option value="field2">Pression (hPa)</option>
-          <option value="field3">Hygrométrie (%)</option>
-          <option value="field4">IAQ</option>
-          <option value="field5">IAQ précision</option>
-          <option value="field6">CO2 (ppm)</option>
-          <option value="field7">COV (ppm)</option>
-        </select>
+    <!-- Toolbar: MOBILE-FIRST design so controls are visible and never overlap the canvas.
+         On small screens, each control is full-width and stacked; on larger screens they sit inline.
+         Controls are placed above the canvas (not overlayed). -->
+    <div class="controls-panel mb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 class="text-xl font-semibold">Historique</h2>
 
-        <label for="timeRangeSelect" class="text-gray-300 ml-2">Période :</label>
-        <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
-          <option value="1h">Dernière heure</option>
-          <option value="24h" selected>Dernières 24h</option>
-          <option value="7d">Derniers 7 jours</option>
-          <option value="30d">Derniers 30 jours</option>
-          <option value="1y">Dernière année</option>
-          <option value="all">Tout</option>
-        </select>
+        <!-- Controls group: wraps and stacks on mobile -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <label for="variableSelect" class="text-gray-300 text-sm">Tracé :</label>
+            <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
+              <option value="field1" selected>Température (°C)</option>
+              <option value="field2">Pression (hPa)</option>
+              <option value="field3">Hygrométrie (%)</option>
+              <option value="field4">IAQ</option>
+              <option value="field5">IAQ précision</option>
+              <option value="field6">CO2 (ppm)</option>
+              <option value="field7">COV (ppm)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <label for="timeRangeSelect" class="text-gray-300 text-sm">Période :</label>
+            <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
+              <option value="1h">Dernière heure</option>
+              <option value="24h" selected>Dernières 24h</option>
+              <option value="7d">Derniers 7 jours</option>
+              <option value="30d">Derniers 30 jours</option>
+              <option value="1y">Dernière année</option>
+              <option value="all">Tout</option>
+            </select>
+          </div>
+
+          <!-- Optional: quick preset buttons for mobile (compact) -->
+          <div class="flex gap-2 items-center w-full sm:w-auto">
+            <button id="btn1h" class="bg-green-600 hover:bg-green-500 text-white rounded px-3 py-1 text-sm w-full sm:w-auto">1h</button>
+            <button id="btn24h" class="bg-blue-600 hover:bg-blue-500 text-white rounded px-3 py-1 text-sm w-full sm:w-auto">24h</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Responsive container that constrains chart height for mobile -->
+    <!-- Chart container (controls are above so nothing overlays the canvas) -->
     <div class="w-full">
-      <!-- Mobile: h-48 (192px), Small screens and up: h-64 (256px), Medium+: h-80 (320px) -->
       <div class="relative w-full h-48 sm:h-64 md:h-80">
         <canvas id="dataChart" class="w-full h-full"></canvas>
       </div>
@@ -114,13 +125,11 @@ body { background-color: #111827; }
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
-// We fetch once and filter client-side for responsiveness. Increase if needed.
 const results = 8000;
 let chart = null;
-let cachedFeeds = null; // store fetched feeds
+let cachedFeeds = null;
 
-const maxPoints = 2000; // downsample to at most this many points for performance
+const maxPoints = 2000;
 
 const fieldLabels = {
   field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
@@ -155,15 +164,13 @@ function filterFeedsByRange(feeds, rangeKey) {
   if (!feeds || !feeds.length) return [];
   const now = Date.now();
   const dur = rangeDurationsMs[rangeKey] ?? Infinity;
-  if (!isFinite(dur)) return feeds.slice(); // 'all' -> return all
+  if (!isFinite(dur)) return feeds.slice();
   const cutoff = now - dur;
-  // feeds are chronological (old->new); we can find start index
-  const res = feeds.filter(f => {
+  return feeds.filter(f => {
     if (!f.created_at) return false;
     const t = Date.parse(f.created_at);
     return !isNaN(t) && t >= cutoff;
   });
-  return res;
 }
 
 function extractSeries(feeds, fieldKey) {
@@ -196,44 +203,19 @@ function downsample(labels, values) {
 }
 
 function getTimeScaleConfig(rangeKey) {
-  // return options for Chart.js time scale adapted to the selected range
   switch (rangeKey) {
     case '1h':
-      return {
-        unit: 'minute',
-        displayFormats: { minute: 'HH:mm' },
-        ticks: { maxTicksLimit: 6 }
-      };
+      return { unit: 'minute', displayFormats: { minute: 'HH:mm' }, maxTicks: 6 };
     case '24h':
-      return {
-        unit: 'hour',
-        displayFormats: { hour: 'HH:mm' },
-        ticks: { maxTicksLimit: 6 }
-      };
+      return { unit: 'hour', displayFormats: { hour: 'HH:mm' }, maxTicks: 6 };
     case '7d':
-      return {
-        unit: 'day',
-        displayFormats: { day: 'dd MMM' },
-        ticks: { maxTicksLimit: 7 }
-      };
+      return { unit: 'day', displayFormats: { day: 'dd MMM' }, maxTicks: 7 };
     case '30d':
-      return {
-        unit: 'day',
-        displayFormats: { day: 'dd MMM' },
-        ticks: { maxTicksLimit: 8 }
-      };
+      return { unit: 'day', displayFormats: { day: 'dd MMM' }, maxTicks: 8 };
     case '1y':
-      return {
-        unit: 'month',
-        displayFormats: { month: 'MMM yyyy' },
-        ticks: { maxTicksLimit: 12 }
-      };
-    default: // 'all' or fallback
-      return {
-        unit: 'month',
-        displayFormats: { month: 'MMM yyyy' },
-        ticks: { maxTicksLimit: 10 }
-      };
+      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, maxTicks: 12 };
+    default:
+      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, maxTicks: 10 };
   }
 }
 
@@ -241,44 +223,20 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
   const ctx = document.getElementById('dataChart').getContext('2d');
   const scaleCfg = getTimeScaleConfig(rangeKey);
 
-  // detect mobile to adapt legend/tooltips/paddings
-  const isMobile = window.innerWidth < 640;
-
   const dataset = {
     label: labelName,
     data: values.map((v, i) => ({ x: labels[i], y: v })),
     borderColor: color,
     backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
     pointRadius: 0,
-    hitRadius: 6,
     borderWidth: 2,
     tension: 0.25,
   };
 
-  const legendOptions = {
-    display: !isMobile, // hide legend on small screens (single series usually)
-    position: 'bottom',
-    labels: {
-      boxWidth: isMobile ? 8 : 12,
-      color: '#e2e8f0',
-      font: { size: isMobile ? 10 : 12 }
-    }
-  };
-
-  const tooltipOptions = {
-    backgroundColor: '#1f2937',
-    titleColor: '#fff',
-    bodyColor: '#fff',
-    padding: isMobile ? 6 : 8,
-    titleFont: { size: isMobile ? 12 : 14 },
-    bodyFont: { size: isMobile ? 12 : 13 },
-    cornerRadius: 6
-  };
-
-  const baseOptions = {
+  const options = {
     responsive: true,
     maintainAspectRatio: false,
-    interaction: { mode: 'nearest', intersect: false },
+    interaction: { mode: 'index', intersect: false },
     scales: {
       x: {
         type: 'time',
@@ -287,17 +245,12 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
           tooltipFormat: 'PPpp',
           displayFormats: scaleCfg.displayFormats
         },
-        ticks: Object.assign({
-          color: '#cbd5e1',
-          autoSkip: true,
-          maxRotation: 0
-        }, scaleCfg.ticks),
+        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.maxTicks },
         grid: { color: 'rgba(148,163,184,0.06)' }
       },
       y: {
         ticks: {
           color: '#cbd5e1',
-          // shorten numbers and control decimals
           callback: function(value) {
             if (Math.abs(value) >= 1000) return (value/1000).toFixed(1) + 'k';
             if (Math.abs(value) % 1 === 0) return String(value);
@@ -308,11 +261,13 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
       }
     },
     plugins: {
-      legend: legendOptions,
-      tooltip: tooltipOptions,
-    },
-    layout: {
-      padding: isMobile ? { left: 6, right: 6, top: 6, bottom: 6 } : { left: 12, right: 12, top: 12, bottom: 12 }
+      legend: { labels: { color: '#e2e8f0', boxWidth: 10 } },
+      tooltip: {
+        backgroundColor: '#1f2937',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        padding: 8
+      }
     },
     elements: { line: { spanGaps: true } }
   };
@@ -321,54 +276,21 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
     chart = new Chart(ctx, {
       type: 'line',
       data: { datasets: [dataset] },
-      options: baseOptions
+      options
     });
   } else {
-    // Replace dataset and update scale/time config
     chart.data.datasets = [dataset];
     chart.options.scales.x.time.unit = scaleCfg.unit;
     chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
-    chart.options.scales.x.ticks = Object.assign(chart.options.scales.x.ticks || {}, scaleCfg.ticks, { maxRotation: 0 });
-
-    // update responsive legend/tooltips/padding
-    chart.options.plugins.legend.display = legendOptions.display;
-    chart.options.plugins.legend.labels.boxWidth = legendOptions.labels.boxWidth;
-    chart.options.plugins.legend.labels.color = legendOptions.labels.color;
-    chart.options.plugins.legend.labels.font = legendOptions.labels.font;
-
-    chart.options.plugins.tooltip.padding = tooltipOptions.padding;
-    chart.options.plugins.tooltip.titleFont = tooltipOptions.titleFont;
-    chart.options.plugins.tooltip.bodyFont = tooltipOptions.bodyFont;
-    chart.options.layout.padding = baseOptions.layout.padding;
-
+    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.maxTicks;
     chart.update();
   }
 }
-
-// apply responsive tweaks on resize (debounced)
-let _resizeTimer = null;
-function applyResponsiveTweaks() {
-  if (!chart) return;
-  const isMobile = window.innerWidth < 640;
-  chart.options.plugins.legend.display = !isMobile;
-  chart.options.plugins.legend.labels.boxWidth = isMobile ? 8 : 12;
-  chart.options.plugins.legend.labels.font.size = isMobile ? 10 : 12;
-  chart.options.plugins.tooltip.padding = isMobile ? 6 : 8;
-  chart.options.plugins.tooltip.titleFont.size = isMobile ? 12 : 14;
-  chart.options.plugins.tooltip.bodyFont.size = isMobile ? 12 : 13;
-  chart.options.layout.padding = isMobile ? { left: 6, right: 6, top: 6, bottom: 6 } : { left: 12, right: 12, top: 12, bottom: 12 };
-  chart.update('none');
-}
-window.addEventListener('resize', () => {
-  clearTimeout(_resizeTimer);
-  _resizeTimer = setTimeout(applyResponsiveTweaks, 150);
-});
 
 function plotFieldForRange(feeds, fieldKey, rangeKey) {
   const filtered = filterFeedsByRange(feeds, rangeKey);
   const { labels, values } = extractSeries(filtered, fieldKey);
   if (labels.length === 0) {
-    // empty chart
     createOrUpdateChart([], [], fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
     return;
   }
@@ -386,7 +308,6 @@ async function updateDashboard() {
 
     const latest = feeds[feeds.length - 1];
 
-    // Update live cards (defensive)
     document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
@@ -401,54 +322,44 @@ async function updateDashboard() {
       document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
     }
 
-    // initial chart plot using current controls
     const variable = document.getElementById('variableSelect')?.value || 'field1';
     const range = document.getElementById('timeRangeSelect')?.value || '24h';
     plotFieldForRange(feeds, variable, range);
-
-    // apply responsive tweaks immediately after first draw
-    setTimeout(applyResponsiveTweaks, 50);
   } catch (err) {
     console.error('Failed to update dashboard:', err);
     document.getElementById('lastUpdate').innerText = "Erreur lors de la récupération des données.";
   }
 }
 
-// Attach events to controls
+// Controls
 const variableSelectEl = document.getElementById('variableSelect');
 const timeRangeSelectEl = document.getElementById('timeRangeSelect');
+const btn1h = document.getElementById('btn1h');
+const btn24h = document.getElementById('btn24h');
 
 if (variableSelectEl) {
   variableSelectEl.addEventListener('change', async () => {
-    try {
-      const feeds = await getData();
-      const range = timeRangeSelectEl?.value || '24h';
-      plotFieldForRange(feeds, variableSelectEl.value, range);
-    } catch (err) {
-      console.error('Error fetching data for chart:', err);
-    }
+    const feeds = await getData();
+    const range = timeRangeSelectEl?.value || '24h';
+    plotFieldForRange(feeds, variableSelectEl.value, range);
   });
 }
 
 if (timeRangeSelectEl) {
   timeRangeSelectEl.addEventListener('change', async () => {
-    try {
-      const feeds = await getData();
-      const variable = variableSelectEl?.value || 'field1';
-      plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
-    } catch (err) {
-      console.error('Error fetching data for chart:', err);
-    }
+    const feeds = await getData();
+    const variable = variableSelectEl?.value || 'field1';
+    plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
   });
 }
 
-// Initial load and periodic refresh (keeps cache fresh)
+// quick preset buttons
+if (btn1h) btn1h.addEventListener('click', () => { timeRangeSelectEl.value = '1h'; timeRangeSelectEl.dispatchEvent(new Event('change')); });
+if (btn24h) btn24h.addEventListener('click', () => { timeRangeSelectEl.value = '24h'; timeRangeSelectEl.dispatchEvent(new Event('change')); });
+
+// initial load and periodic refresh
 updateDashboard();
-setInterval(async () => {
-  // refresh cachedFeeds so range-filtering uses recent data
-  cachedFeeds = null;
-  await updateDashboard();
-}, 30000);
+setInterval(() => { cachedFeeds = null; updateDashboard(); }, 30000);
 </script>
 </body>
 </html>
