@@ -14,8 +14,8 @@
 
 <style>
   body { background-color: #111827; }
-  /* Ensure the controls never overlap the chart on small screens */
-  .controls-panel { z-index: 5; }
+  /* Ensure controls area stays above canvas and doesn't overlap */
+  .controls-panel { z-index: 10; }
 </style>
 </head>
 <body class="font-sans text-gray-100">
@@ -70,44 +70,36 @@
 
   <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <!-- Toolbar: MOBILE-FIRST design so controls are visible and never overlap the canvas.
-         On small screens, each control is full-width and stacked; on larger screens they sit inline.
-         Controls are placed above the canvas (not overlayed). -->
+    <!-- Controls: mobile-first, stacked labels above selects on small screens so long labels never overlap selects or canvas -->
     <div class="controls-panel mb-4">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 class="text-xl font-semibold">Historique</h2>
+        <h2 class="text-xl font-semibold">Imagine si on avait accès à l'historique des données, ça serait fou non ?</h2>
 
-        <!-- Controls group: wraps and stacks on mobile -->
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <label for="variableSelect" class="text-gray-300 text-sm">Tracé :</label>
+        <div class="flex flex-wrap items-center gap-2 justify-end">
+          <!-- Each control stacks on small screens (label above select), sits inline on sm+ -->
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1 w-full sm:w-auto">
+            <label for="variableSelect" class="text-gray-300 text-sm break-words pr-2 sm:pr-0">Alors, tu veux regarder quoi ?</label>
             <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
-              <option value="field1" selected>Température (°C)</option>
-              <option value="field2">Pression (hPa)</option>
-              <option value="field3">Hygrométrie (%)</option>
+              <option value="field1" selected>Température</option>
+              <option value="field2">Pression</option>
+              <option value="field3">Hygrométrie</option>
               <option value="field4">IAQ</option>
               <option value="field5">IAQ précision</option>
-              <option value="field6">CO2 (ppm)</option>
-              <option value="field7">COV (ppm)</option>
+              <option value="field6">CO2</option>
+              <option value="field7">COV</option>
             </select>
           </div>
 
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <label for="timeRangeSelect" class="text-gray-300 text-sm">Période :</label>
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1 w-full sm:w-auto">
+            <label for="timeRangeSelect" class="text-gray-300 text-sm break-words pr-2 sm:pr-0">Sur quelle période?</label>
             <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
-              <option value="1h">Dernière heure</option>
-              <option value="24h" selected>Dernières 24h</option>
-              <option value="7d">Derniers 7 jours</option>
-              <option value="30d">Derniers 30 jours</option>
-              <option value="1y">Dernière année</option>
-              <option value="all">Tout</option>
+              <option value="1h">La dernière heure</option>
+              <option value="24h" selected>Les dernières 24h</option>
+              <option value="7d">Les 7 jours passés</option>
+              <option value="30d">Le mois passé</option>
+              <option value="1y">L'année passée</option>
+              <option value="all">Allez balance tout</option>
             </select>
-          </div>
-
-          <!-- Optional: quick preset buttons for mobile (compact) -->
-          <div class="flex gap-2 items-center w-full sm:w-auto">
-            <button id="btn1h" class="bg-green-600 hover:bg-green-500 text-white rounded px-3 py-1 text-sm w-full sm:w-auto">1h</button>
-            <button id="btn24h" class="bg-blue-600 hover:bg-blue-500 text-white rounded px-3 py-1 text-sm w-full sm:w-auto">24h</button>
           </div>
         </div>
       </div>
@@ -125,11 +117,12 @@
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
+// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
 const results = 8000;
 let chart = null;
-let cachedFeeds = null;
+let cachedFeeds = null; // store fetched feeds
 
-const maxPoints = 2000;
+const maxPoints = 2000; // downsample to at most this many points for performance
 
 const fieldLabels = {
   field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
@@ -164,13 +157,15 @@ function filterFeedsByRange(feeds, rangeKey) {
   if (!feeds || !feeds.length) return [];
   const now = Date.now();
   const dur = rangeDurationsMs[rangeKey] ?? Infinity;
-  if (!isFinite(dur)) return feeds.slice();
+  if (!isFinite(dur)) return feeds.slice(); // 'all' -> return all
   const cutoff = now - dur;
-  return feeds.filter(f => {
+  // feeds are chronological (old->new); we can find start index
+  const res = feeds.filter(f => {
     if (!f.created_at) return false;
     const t = Date.parse(f.created_at);
     return !isNaN(t) && t >= cutoff;
   });
+  return res;
 }
 
 function extractSeries(feeds, fieldKey) {
@@ -203,19 +198,44 @@ function downsample(labels, values) {
 }
 
 function getTimeScaleConfig(rangeKey) {
+  // return options for Chart.js time scale adapted to the selected range
   switch (rangeKey) {
     case '1h':
-      return { unit: 'minute', displayFormats: { minute: 'HH:mm' }, maxTicks: 6 };
+      return {
+        unit: 'minute',
+        displayFormats: { minute: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
     case '24h':
-      return { unit: 'hour', displayFormats: { hour: 'HH:mm' }, maxTicks: 6 };
+      return {
+        unit: 'hour',
+        displayFormats: { hour: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
     case '7d':
-      return { unit: 'day', displayFormats: { day: 'dd MMM' }, maxTicks: 7 };
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 7 }
+      };
     case '30d':
-      return { unit: 'day', displayFormats: { day: 'dd MMM' }, maxTicks: 8 };
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 8 }
+      };
     case '1y':
-      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, maxTicks: 12 };
-    default:
-      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, maxTicks: 10 };
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 12 }
+      };
+    default: // 'all' or fallback
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 10 }
+      };
   }
 }
 
@@ -245,7 +265,7 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
           tooltipFormat: 'PPpp',
           displayFormats: scaleCfg.displayFormats
         },
-        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.maxTicks },
+        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6 },
         grid: { color: 'rgba(148,163,184,0.06)' }
       },
       y: {
@@ -282,7 +302,7 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
     chart.data.datasets = [dataset];
     chart.options.scales.x.time.unit = scaleCfg.unit;
     chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
-    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.maxTicks;
+    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6;
     chart.update();
   }
 }
@@ -308,6 +328,7 @@ async function updateDashboard() {
 
     const latest = feeds[feeds.length - 1];
 
+    // Update live cards (defensive)
     document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
@@ -334,28 +355,30 @@ async function updateDashboard() {
 // Controls
 const variableSelectEl = document.getElementById('variableSelect');
 const timeRangeSelectEl = document.getElementById('timeRangeSelect');
-const btn1h = document.getElementById('btn1h');
-const btn24h = document.getElementById('btn24h');
 
 if (variableSelectEl) {
   variableSelectEl.addEventListener('change', async () => {
-    const feeds = await getData();
-    const range = timeRangeSelectEl?.value || '24h';
-    plotFieldForRange(feeds, variableSelectEl.value, range);
+    try {
+      const feeds = await getData();
+      const range = timeRangeSelectEl?.value || '24h';
+      plotFieldForRange(feeds, variableSelectEl.value, range);
+    } catch (err) {
+      console.error('Error fetching data for chart:', err);
+    }
   });
 }
 
 if (timeRangeSelectEl) {
   timeRangeSelectEl.addEventListener('change', async () => {
-    const feeds = await getData();
-    const variable = variableSelectEl?.value || 'field1';
-    plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
+    try {
+      const feeds = await getData();
+      const variable = variableSelectEl?.value || 'field1';
+      plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
+    } catch (err) {
+      console.error('Error fetching data for chart:', err);
+    }
   });
 }
-
-// quick preset buttons
-if (btn1h) btn1h.addEventListener('click', () => { timeRangeSelectEl.value = '1h'; timeRangeSelectEl.dispatchEvent(new Event('change')); });
-if (btn24h) btn24h.addEventListener('click', () => { timeRangeSelectEl.value = '24h'; timeRangeSelectEl.dispatchEvent(new Event('change')); });
 
 // initial load and periodic refresh
 updateDashboard();
