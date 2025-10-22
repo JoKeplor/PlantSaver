@@ -8,8 +8,9 @@
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Chart.js -->
+<!-- Chart.js and date adapter -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 
 <style>
 body { background-color: #111827; }
@@ -26,11 +27,9 @@ body { background-color: #111827; }
 </header>
 
 <!-- Main Content -->
-<main class="container mx-auto p-6">
-  <!-- Cards -->
-<!-- Cards Grid -->
+<main class="container mx-auto p-6 space-y-6">
+  <!-- Cards Grid -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    
     <!-- Temperature -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Température</h2>
@@ -72,32 +71,168 @@ body { background-color: #111827; }
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
       <p id="vocValue" class="text-2xl sm:text-3xl font-bold text-cyan-400">--</p>
     </div>
-
   </div>
 
-  <!-- Chart Section -->
+  <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Tu te rends comptes ? On a aussi accès à l'historique !</h2>
-    <canvas id="dataChart"></canvas>
+    <div class="flex items-center justify-between mb-4 gap-4">
+      <h2 class="text-xl font-semibold">Tu te rends comptes ? On a aussi accès à l'historique !</h2>
+      <div class="flex items-center space-x-2">
+        <label for="variableSelect" class="text-gray-300">Tracé :</label>
+        <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
+          <option value="field1" selected>Température (°C)</option>
+          <option value="field2">Pression (hPa)</option>
+          <option value="field3">Hygrométrie (%)</option>
+          <option value="field4">IAQ</option>
+          <option value="field5">IAQ précision</option>
+          <option value="field6">CO2 (ppm)</option>
+          <option value="field7">COV (ppm)</option>
+        </select>
+      </div>
+    </div>
+
+    <canvas id="dataChart" height="160"></canvas>
   </div>
 </main>
 
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-const results = 100000;
-let chart;
+// Keep a reasonable upper limit; ThingSpeak may not return huge results reliably.
+// You can increase if you know your channel supports it, but we'll downsample client-side if needed.
+const results = 8000;
+let chart = null;
+const maxPoints = 2000; // downsample to at most this many points for performance
 
-// Fetch data from ThingSpeak
+const fieldLabels = {
+  field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
+  field2: {label: "Pression (hPa)", color: "rgb(239,68,68)"},
+  field3: {label: "Hygrométrie (%)", color: "rgb(20,184,166)"},
+  field4: {label: "IAQ", color: "rgb(59,130,246)"},
+  field5: {label: "IAQ précision", color: "rgb(234,179,8)"},
+  field6: {label: "CO2 (ppm)", color: "rgb(236,72,153)"},
+  field7: {label: "COV (ppm)", color: "rgb(6,182,212)"}
+};
+
 async function getData() {
   const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
   const data = await res.json();
-  return data.feeds;
+  return data.feeds || [];
 }
 
-// Update dashboard and chart
+function downsample(labels, values) {
+  const n = labels.length;
+  if (n <= maxPoints) return { labels, values };
+  const step = Math.ceil(n / maxPoints);
+  const newLabels = [];
+  const newValues = [];
+  for (let i = 0; i < n; i += step) {
+    newLabels.push(labels[i]);
+    newValues.push(values[i]);
+  }
+  return { labels: newLabels, values: newValues };
+}
+
+function createOrUpdateChart(labels, values, labelName, color) {
+  const ctx = document.getElementById('dataChart').getContext('2d');
+
+  if (!chart) {
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: labelName,
+          data: values,
+          borderColor: color,
+          backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
+          pointRadius: 1,
+          borderWidth: 2,
+          tension: 0.25,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              tooltipFormat: 'PPpp',
+              displayFormats: {
+                hour: 'yyyy-MM-dd HH:mm',
+                day: 'yyyy-MM-dd'
+              }
+            },
+            ticks: {
+              color: '#cbd5e1'
+            },
+            grid: {
+              color: 'rgba(148,163,184,0.06)'
+            }
+          },
+          y: {
+            ticks: {
+              color: '#cbd5e1'
+            },
+            grid: {
+              color: 'rgba(148,163,184,0.06)'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: '#e2e8f0'
+            }
+          },
+          tooltip: {
+            backgroundColor: '#1f2937',
+            titleColor: '#fff',
+            bodyColor: '#fff'
+          }
+        }
+      }
+    });
+  } else {
+    // Replace dataset
+    chart.data.labels = labels;
+    chart.data.datasets = [{
+      label: labelName,
+      data: values,
+      borderColor: color,
+      backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
+      pointRadius: 1,
+      borderWidth: 2,
+      tension: 0.25,
+    }];
+    chart.update();
+  }
+}
+
+function extractSeries(feeds, fieldKey) {
+  // feeds is chronological (old -> new) according to ThingSpeak
+  const labels = [];
+  const values = [];
+  for (const f of feeds) {
+    if (!f.created_at) continue;
+    const raw = f[fieldKey];
+    const v = raw !== null && raw !== undefined ? parseFloat(raw) : NaN;
+    if (!isFinite(v)) continue;
+    const dt = new Date(f.created_at);
+    if (isNaN(dt)) continue;
+    labels.push(dt);
+    values.push(v);
+  }
+  return { labels, values };
+}
+
 async function updateDashboard() {
   try {
     const feeds = await getData();
@@ -108,7 +243,7 @@ async function updateDashboard() {
 
     const latest = feeds[feeds.length - 1];
 
-    // Defensive checks before updating DOM
+    // Update live cards (defensive)
     document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
@@ -123,12 +258,41 @@ async function updateDashboard() {
       document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
     }
 
-    // (Optional) update chart here if you want to visualize history
-    // Example placeholder: initialize chart once and update datasets on subsequent calls
+    // Update chart for currently selected variable
+    const select = document.getElementById('variableSelect');
+    const selectedField = select ? select.value : 'field1';
+    plotField(feeds, selectedField);
+
   } catch (err) {
     console.error('Failed to update dashboard:', err);
     document.getElementById('lastUpdate').innerText = "Erreur lors de la récupération des données.";
   }
+}
+
+function plotField(feeds, fieldKey) {
+  const { labels, values } = extractSeries(feeds, fieldKey);
+  if (labels.length === 0) {
+    createOrUpdateChart([], [], fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)');
+    return;
+  }
+
+  // Downsample if needed (preserves chronological order)
+  const ds = downsample(labels, values);
+  createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)');
+}
+
+// Attach event to variable selector
+const variableSelectEl = document.getElementById('variableSelect');
+if (variableSelectEl) {
+  variableSelectEl.addEventListener('change', async () => {
+    try {
+      // Re-fetch recent data and re-plot chosen field (keeps data fresh)
+      const feeds = await getData();
+      plotField(feeds, variableSelectEl.value);
+    } catch (err) {
+      console.error('Error fetching data for chart:', err);
+    }
+  });
 }
 
 // Initial load and periodic refresh
