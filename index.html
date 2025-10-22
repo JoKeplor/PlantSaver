@@ -182,11 +182,14 @@ async function updateDashboard() {
   const latest = feeds[feeds.length - 1];
 
   // Update live values
-  document.getElementById('moistureValue').innerText = parseFloat(latest.field5).toFixed(2) + " %";
-  document.getElementById('tempValue').innerText = parseFloat(latest.field2).toFixed(2) + " °C";
-  document.getElementById('pressureValue').innerText = parseFloat(latest.field3).toFixed(2) + " hPa";
-  document.getElementById('humidityValue').innerText = parseFloat(latest.field4).toFixed(2) + " %";
-  document.getElementById('lastUpdate').innerText = "Last update: " + new Date(latest.created_at).toLocaleString();
+  document.getElementById('tempValue').innerText = parseFloat(latest.field1).toFixed(2) + " °C";
+  document.getElementById('pressureValue').innerText = parseFloat(latest.field2).toFixed(2) + " hPa";
+  document.getElementById('moistureValue').innerText = parseFloat(latest.field3).toFixed(2) + " %";
+  document.getElementById('iaqValue').innerText = parseFloat(latest.field4).toFixed(2);
+   document.getElementById('iaqprecisionValue').innerText = parseFloat(latest.field5).toFixed(2);
+   document.getElementById('co2value').innerText = parseFloat(latest.field6).toFixed(2) + " ppm";
+   document.getElementById('vocValue').innerText = parseFloat(latest.field7).toFixed(2) + " ppm";
+  document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
 
   updateChart(feeds);
 }
