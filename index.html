@@ -76,9 +76,9 @@ body { background-color: #111827; }
   <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-      <h2 class="text-xl font-semibold">Imagine on avait accès à tout l'historique, ça serait fou non ?</h2>
+      <h2 class="text-xl font-semibold">Historique</h2>
       <div class="flex items-center space-x-2">
-        <label for="variableSelect" class="text-gray-300">Alors, on regarde quoi ?:</label>
+        <label for="variableSelect" class="text-gray-300">Tracé :</label>
         <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
           <option value="field1" selected>Température (°C)</option>
           <option value="field2">Pression (hPa)</option>
@@ -89,14 +89,14 @@ body { background-color: #111827; }
           <option value="field7">COV (ppm)</option>
         </select>
 
-        <label for="timeRangeSelect" class="text-gray-300 ml-2">Sur quelle période :</label>
+        <label for="timeRangeSelect" class="text-gray-300 ml-2">Période :</label>
         <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1">
-          <option value="1h">La dernière heure</option>
-          <option value="24h" selected>Les dernières 24h</option>
-          <option value="7d">Les 7 derniers jours</option>
-          <option value="30d">Le mois dernier</option>
-          <option value="1y">L'année passée</option>
-          <option value="all">Allez, balance tout</option>
+          <option value="1h">Dernière heure</option>
+          <option value="24h" selected>Dernières 24h</option>
+          <option value="7d">Derniers 7 jours</option>
+          <option value="30d">Derniers 30 jours</option>
+          <option value="1y">Dernière année</option>
+          <option value="all">Tout</option>
         </select>
       </div>
     </div>
@@ -241,6 +241,9 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
   const ctx = document.getElementById('dataChart').getContext('2d');
   const scaleCfg = getTimeScaleConfig(rangeKey);
 
+  // detect mobile to adapt legend/tooltips/paddings
+  const isMobile = window.innerWidth < 640;
+
   const dataset = {
     label: labelName,
     data: values.map((v, i) => ({ x: labels[i], y: v })),
@@ -252,55 +255,114 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
     tension: 0.25,
   };
 
+  const legendOptions = {
+    display: !isMobile, // hide legend on small screens (single series usually)
+    position: 'bottom',
+    labels: {
+      boxWidth: isMobile ? 8 : 12,
+      color: '#e2e8f0',
+      font: { size: isMobile ? 10 : 12 }
+    }
+  };
+
+  const tooltipOptions = {
+    backgroundColor: '#1f2937',
+    titleColor: '#fff',
+    bodyColor: '#fff',
+    padding: isMobile ? 6 : 8,
+    titleFont: { size: isMobile ? 12 : 14 },
+    bodyFont: { size: isMobile ? 12 : 13 },
+    cornerRadius: 6
+  };
+
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false },
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: scaleCfg.unit,
+          tooltipFormat: 'PPpp',
+          displayFormats: scaleCfg.displayFormats
+        },
+        ticks: Object.assign({
+          color: '#cbd5e1',
+          autoSkip: true,
+          maxRotation: 0
+        }, scaleCfg.ticks),
+        grid: { color: 'rgba(148,163,184,0.06)' }
+      },
+      y: {
+        ticks: {
+          color: '#cbd5e1',
+          // shorten numbers and control decimals
+          callback: function(value) {
+            if (Math.abs(value) >= 1000) return (value/1000).toFixed(1) + 'k';
+            if (Math.abs(value) % 1 === 0) return String(value);
+            return Number(value).toFixed(1);
+          }
+        },
+        grid: { color: 'rgba(148,163,184,0.06)' }
+      }
+    },
+    plugins: {
+      legend: legendOptions,
+      tooltip: tooltipOptions,
+    },
+    layout: {
+      padding: isMobile ? { left: 6, right: 6, top: 6, bottom: 6 } : { left: 12, right: 12, top: 12, bottom: 12 }
+    },
+    elements: { line: { spanGaps: true } }
+  };
+
   if (!chart) {
     chart = new Chart(ctx, {
       type: 'line',
       data: { datasets: [dataset] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'nearest', intersect: false },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              unit: scaleCfg.unit,
-              tooltipFormat: 'PPpp',
-              displayFormats: scaleCfg.displayFormats
-            },
-            ticks: Object.assign({
-              color: '#cbd5e1',
-              autoSkip: true
-            }, scaleCfg.ticks),
-            grid: { color: 'rgba(148,163,184,0.06)' }
-          },
-          y: {
-            ticks: { color: '#cbd5e1' },
-            grid: { color: 'rgba(148,163,184,0.06)' }
-          }
-        },
-        plugins: {
-          legend: { labels: { color: '#e2e8f0' } },
-          tooltip: {
-            backgroundColor: '#1f2937',
-            titleColor: '#fff',
-            bodyColor: '#fff',
-            padding: 8
-          }
-        },
-        elements: { line: { spanGaps: true } }
-      }
+      options: baseOptions
     });
   } else {
-    // Update dataset and x scale config
+    // Replace dataset and update scale/time config
     chart.data.datasets = [dataset];
-    // update x scale config
     chart.options.scales.x.time.unit = scaleCfg.unit;
     chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
-    chart.options.scales.x.ticks = Object.assign(chart.options.scales.x.ticks || {}, scaleCfg.ticks);
+    chart.options.scales.x.ticks = Object.assign(chart.options.scales.x.ticks || {}, scaleCfg.ticks, { maxRotation: 0 });
+
+    // update responsive legend/tooltips/padding
+    chart.options.plugins.legend.display = legendOptions.display;
+    chart.options.plugins.legend.labels.boxWidth = legendOptions.labels.boxWidth;
+    chart.options.plugins.legend.labels.color = legendOptions.labels.color;
+    chart.options.plugins.legend.labels.font = legendOptions.labels.font;
+
+    chart.options.plugins.tooltip.padding = tooltipOptions.padding;
+    chart.options.plugins.tooltip.titleFont = tooltipOptions.titleFont;
+    chart.options.plugins.tooltip.bodyFont = tooltipOptions.bodyFont;
+    chart.options.layout.padding = baseOptions.layout.padding;
+
     chart.update();
   }
 }
+
+// apply responsive tweaks on resize (debounced)
+let _resizeTimer = null;
+function applyResponsiveTweaks() {
+  if (!chart) return;
+  const isMobile = window.innerWidth < 640;
+  chart.options.plugins.legend.display = !isMobile;
+  chart.options.plugins.legend.labels.boxWidth = isMobile ? 8 : 12;
+  chart.options.plugins.legend.labels.font.size = isMobile ? 10 : 12;
+  chart.options.plugins.tooltip.padding = isMobile ? 6 : 8;
+  chart.options.plugins.tooltip.titleFont.size = isMobile ? 12 : 14;
+  chart.options.plugins.tooltip.bodyFont.size = isMobile ? 12 : 13;
+  chart.options.layout.padding = isMobile ? { left: 6, right: 6, top: 6, bottom: 6 } : { left: 12, right: 12, top: 12, bottom: 12 };
+  chart.update('none');
+}
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(applyResponsiveTweaks, 150);
+});
 
 function plotFieldForRange(feeds, fieldKey, rangeKey) {
   const filtered = filterFeedsByRange(feeds, rangeKey);
@@ -344,6 +406,8 @@ async function updateDashboard() {
     const range = document.getElementById('timeRangeSelect')?.value || '24h';
     plotFieldForRange(feeds, variable, range);
 
+    // apply responsive tweaks immediately after first draw
+    setTimeout(applyResponsiveTweaks, 50);
   } catch (err) {
     console.error('Failed to update dashboard:', err);
     document.getElementById('lastUpdate').innerText = "Erreur lors de la récupération des données.";
