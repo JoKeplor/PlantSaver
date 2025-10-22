@@ -20,8 +20,8 @@ body { background-color: #111827; }
 <!-- Top Navigation -->
 <header class="bg-gray-800 shadow-lg">
   <div class="container mx-auto flex items-center justify-between p-4">
-    <h1 class="text-2xl font-bold text-green-400">Mais alors quel temps fait-il sur le balcon de Jonathan?</h1>
-    <p id="lastUpdate" class="text-gray-400">Les dernières données météorologiques datent de : --</p>
+    <h1 class="text-2xl font-bold text-green-400">Mais alors, quel temps fait-il sur le balcon de Jonathan?</h1>
+    <p id="lastUpdate" class="text-gray-400">Les dernières données météorologiques datent de: --</p>
   </div>
 </header>
 
@@ -204,10 +204,10 @@ function updateChart(feeds) {
     case "temp": label = "Température (°C)"; color = "#4ade80"; rawData = filtered.map(f => f.field1); break;
     case "pressure": label = "Pression (hPa)"; color = "#f87171"; rawData = filtered.map(f => f.field2); break;
     case "humidity": label = "Hygrométrie (%)"; color = "#2dd4bf"; rawData = filtered.map(f => f.field3); break;
-    case "moisture": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => f.field4); break;
-    case "moisture": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => f.field5); break;
-    case "moisture": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => f.field6); break;
-    case "moisture": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
+    case "iaq": label = "IAQ"; color = "#60a5fa"; rawData = filtered.map(f => f.field4); break;
+    case "iaqp": label = "IAQ précision"; color = "#facc15"; rawData = filtered.map(f => f.field5); break;
+    case "co2": label = "Quantité de CO2 (ppm)"; color = "#f472b6"; rawData = filtered.map(f => f.field6); break;
+    case "cov": label = "Quantité de COV (ppm)"; color = "#22d3ee"; rawData = filtered.map(f => f.field7); break;
   }
 
   const data = smoothData(rawData);
