@@ -91,7 +91,13 @@ body { background-color: #111827; }
       </div>
     </div>
 
-    <canvas id="dataChart" height="160"></canvas>
+    <!-- Responsive container that constrains chart height for mobile -->
+    <div class="w-full">
+      <!-- Mobile: h-48 (192px), Small screens and up: h-64 (256px), Medium+: h-80 (320px) -->
+      <div class="relative w-full h-48 sm:h-64 md:h-80">
+        <canvas id="dataChart" class="w-full h-full"></canvas>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -148,14 +154,15 @@ function createOrUpdateChart(labels, values, labelName, color) {
           data: values,
           borderColor: color,
           backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
-          pointRadius: 1,
+          pointRadius: 0,         // hide individual points for a cleaner mobile view
+          hitRadius: 6,          // keep tooltips easy to trigger on touch
           borderWidth: 2,
           tension: 0.25,
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: false, // allow CSS container height to control chart height
         interaction: {
           mode: 'index',
           intersect: false,
@@ -171,7 +178,10 @@ function createOrUpdateChart(labels, values, labelName, color) {
               }
             },
             ticks: {
-              color: '#cbd5e1'
+              color: '#cbd5e1',
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 6
             },
             grid: {
               color: 'rgba(148,163,184,0.06)'
@@ -195,7 +205,13 @@ function createOrUpdateChart(labels, values, labelName, color) {
           tooltip: {
             backgroundColor: '#1f2937',
             titleColor: '#fff',
-            bodyColor: '#fff'
+            bodyColor: '#fff',
+            padding: 8
+          }
+        },
+        elements: {
+          line: {
+            spanGaps: true
           }
         }
       }
@@ -208,7 +224,8 @@ function createOrUpdateChart(labels, values, labelName, color) {
       data: values,
       borderColor: color,
       backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
-      pointRadius: 1,
+      pointRadius: 0,
+      hitRadius: 6,
       borderWidth: 2,
       tension: 0.25,
     }];
