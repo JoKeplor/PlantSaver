@@ -16,6 +16,13 @@
   body { background-color: #111827; }
   /* Ensure controls area stays above canvas and doesn't overlap */
   .controls-panel { z-index: 10; }
+  
+/* IAQ gauge styling */
+#iaqCard { width: 140px; height: 140px; }
+#iaqGauge { display: block; }
+.iaq-segment { transition: transform 220ms ease, filter 220ms ease; transform-origin: 60px 60px; }
+.iaq-active { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+  
 </style>
 </head>
 <body class="font-sans text-gray-100">
@@ -47,10 +54,23 @@
       <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-teal-400">-- %</p>
     </div>
 
-    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
-      <p id="iaqValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</p>
+<div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+  <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
+
+  <!-- Gauge container -->
+  <div id="iaqCard" class="flex items-center justify-center relative">
+    <!-- SVG gauge -->
+    <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- Segments will be drawn here by JS -->
+    </svg>
+
+    <!-- Center value -->
+    <div class="absolute flex flex-col items-center justify-center">
+      <span id="iaqValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</span>
+      <span id="iaqGradeLabel" class="text-xs text-gray-300 mt-1">--</span>
     </div>
+  </div>
+</div>
 
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
@@ -318,6 +338,124 @@ function plotFieldForRange(feeds, fieldKey, rangeKey) {
   createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
 }
 
+  // IAQ grades configuration (edit ranges/colors/names here)
+const iaqGrades = [
+  { name: 'Très bon', color: '#16a34a' },
+  { name: 'Bon',     color: '#22c55e' },
+  { name: 'Moyen',   color: '#f59e0b' },
+  { name: 'Médiocre',color: '#f97316' },
+  { name: 'Mauvais', color: '#ef4444' }
+];
+
+// Draw an SVG donut segment (ring slice)
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const a = (angleDeg - 90) * Math.PI/180.0;
+  return { x: cx + (r * Math.cos(a)), y: cy + (r * Math.sin(a)) };
+}
+
+function describeArcSegment(cx, cy, rOuter, rInner, startAngle, endAngle) {
+  // Outer arc
+  const p1 = polarToCartesian(cx, cy, rOuter, endAngle);
+  const p2 = polarToCartesian(cx, cy, rOuter, startAngle);
+  const largeArcOuter = endAngle - startAngle <= 180 ? "0" : "1";
+
+  // Inner arc (reverse)
+  const p3 = polarToCartesian(cx, cy, rInner, startAngle);
+  const p4 = polarToCartesian(cx, cy, rInner, endAngle);
+  const largeArcInner = endAngle - startAngle <= 180 ? "0" : "1";
+
+  // Path: outer arc -> line to inner arc -> inner arc -> close
+  const d = [
+    "M", p1.x, p1.y,
+    "A", rOuter, rOuter, 0, largeArcOuter, 0, p2.x, p2.y,
+    "L", p3.x, p3.y,
+    "A", rInner, rInner, 0, largeArcInner, 1, p4.x, p4.y,
+    "Z"
+  ].join(" ");
+  return d;
+}
+
+// Draw the gauge with equal segments; highlight the active segment
+function drawIAQGauge(value) {
+  const svg = document.getElementById('iaqGauge');
+  if (!svg) return;
+
+  // Clear previous
+  svg.innerHTML = '';
+
+  const cx = 60, cy = 60;
+  const rOuterBase = 44;
+  const rInner = 30;
+  const segments = iaqGrades.length;
+  const segAngle = 360 / segments;
+
+  // Determine active index based on numeric value mapped to index:
+  // Here we map numeric IAQ to index by thresholds; tweak if you have specific ranges.
+  // Default threshold mapping:
+  const thresholds = [50, 100, 150, 200]; // boundaries between segments (last >200)
+  let activeIndex = -1;
+  if (isFinite(value)) {
+    for (let i = 0; i < thresholds.length; i++) {
+      if (value <= thresholds[i]) { activeIndex = i; break; }
+    }
+    if (activeIndex === -1) activeIndex = segments - 1;
+  }
+
+  // Draw segments
+  for (let i = 0; i < segments; i++) {
+    const start = i * segAngle;
+    const end = start + segAngle;
+    // Make active segment slightly larger by using bigger outer radius
+    const isActive = i === activeIndex;
+    const rOuter = isActive ? rOuterBase + 8 : rOuterBase;
+    const pathD = describeArcSegment(cx, cy, rOuter, rInner, start, end);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathD);
+    path.setAttribute('fill', iaqGrades[i].color);
+    path.setAttribute('class', 'iaq-segment' + (isActive ? ' iaq-active' : ''));
+    path.setAttribute('data-idx', i);
+    // Slight rotation offset to make segments visually nice (optional)
+    svg.appendChild(path);
+  }
+
+  // Optionally add a thin inner circle ring to smooth center edge
+  const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  innerCircle.setAttribute('cx', cx);
+  innerCircle.setAttribute('cy', cy);
+  innerCircle.setAttribute('r', rInner - 1);
+  innerCircle.setAttribute('fill', '#0f172a'); // match page background tone
+  svg.appendChild(innerCircle);
+
+  // Update center label text and grade label
+  const valueEl = document.getElementById('iaqValue');
+  const gradeEl = document.getElementById('iaqGradeLabel');
+  if (!isFinite(value)) {
+    if (valueEl) valueEl.innerText = '--';
+    if (gradeEl) gradeEl.innerText = '--';
+  } else {
+    if (valueEl) valueEl.innerText = Number(value).toFixed(2);
+    if (gradeEl) gradeEl.innerText = iaqGrades[Math.max(0, activeIndex)].name;
+  }
+
+  // Add simple interactivity: hover a segment to show its label
+  Array.from(svg.querySelectorAll('.iaq-segment')).forEach(p => {
+    p.onmouseenter = () => {
+      const idx = Number(p.getAttribute('data-idx') || 0);
+      const el = document.getElementById('iaqGradeLabel');
+      if (el) el.innerText = iaqGrades[idx].name;
+      p.style.transform = 'scale(1.03)';
+    };
+    p.onmouseleave = () => {
+      // restore active label
+      const idxActive = activeIndex;
+      const el = document.getElementById('iaqGradeLabel');
+      if (el) el.innerText = iaqGrades[Math.max(0, idxActive)].name;
+      p.style.transform = '';
+    };
+  });
+}
+
 async function updateDashboard() {
   try {
     const feeds = await getData();
@@ -332,7 +470,9 @@ async function updateDashboard() {
     document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
-    document.getElementById('iaqValue').innerText = isFinite(parseFloat(latest.field4)) ? parseFloat(latest.field4).toFixed(2) : "--";
+    const iaqRaw = parseFloat(latest.field4);
+    document.getElementById('iaqValue').innerText = isFinite(iaqRaw) ? iaqRaw.toFixed(2) : "--";
+    drawIAQGauge(isFinite(iaqRaw) ? iaqRaw : NaN);
     document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(2) : "--";
     document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(2) + " ppm" : "--";
     document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(2) + " ppm" : "--";
