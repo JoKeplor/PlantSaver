@@ -17,11 +17,11 @@
   /* Ensure controls area stays above canvas and doesn't overlap */
   .controls-panel { z-index: 10; }
   
-/* IAQ gauge styling */
-#iaqCard { width: 140px; height: 140px; }
-#iaqGauge { display: block; }
-.iaq-segment { transition: transform 220ms ease, filter 220ms ease; transform-origin: 60px 60px; }
-.iaq-active { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+  /* IAQ gauge styling */
+  #iaqCard { width: 140px; height: 140px; }
+  #iaqGauge { display: block; }
+  .iaq-segment { transition: transform 220ms ease, filter 220ms ease; transform-origin: 80px 80px; }
+  .iaq-active { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
   
 </style>
 </head>
@@ -54,27 +54,23 @@
       <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-teal-400">-- %</p>
     </div>
 
-<div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-  <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
-
-  <!-- Gauge container -->
-  <div id="iaqCard" class="flex items-center justify-center relative">
-    <!-- SVG gauge -->
-    <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <!-- Segments will be drawn here by JS -->
-    </svg>
-
-    <!-- Center value -->
-    <div class="absolute flex flex-col items-center justify-center">
-      <span id="iaqValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</span>
-      <span id="iaqGradeLabel" class="text-xs text-gray-300 mt-1">--</span>
-    </div>
-  </div>
-</div>
-
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
-      <p id="iaqprecisionValue" class="text-2xl sm:text-3xl font-bold text-yellow-400">--</p>
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
+
+      <!-- Gauge container -->
+      <div id="iaqCard" class="flex items-center justify-center relative">
+        <!-- SVG gauge -->
+        <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- Segments will be drawn here by JS -->
+        </svg>
+
+        <!-- Center value -->
+        <div class="absolute flex flex-col items-center justify-center">
+          <span id="iaqValue" class="text-l sm:text-l font-bold transition-colors duration-500 leading-none">--</span>
+          <span id="iaqGradeLabel" class="text-xs text-gray-300 mt-1 leading-none">--</span>
+          <span id="iaqprecisionValue" class="text-[10px] text-gray-500 mt-0.5 italic leading-none">-</span>
+        </div>
+      </div>
     </div>
 
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
@@ -162,6 +158,15 @@ const rangeDurationsMs = {
   '1y': 365 * 24 * 60 * 60 * 1000,
   'all': Infinity
 };
+  // IAQ grades configuration
+const iaqGrades = [
+  { name: 'Très bon', color: '#16a34a' },
+  { name: 'Bon',     color: '#22c55e' },
+  { name: 'Moyen',   color: '#f59e0b' },
+  { name: 'Médiocre',color: '#f97316' },
+  { name: 'Mauvais', color: '#ef4444' }
+];
+
 
 async function getData() {
   if (cachedFeeds) return cachedFeeds;
@@ -338,15 +343,6 @@ function plotFieldForRange(feeds, fieldKey, rangeKey) {
   createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
 }
 
-  // IAQ grades configuration (edit ranges/colors/names here)
-const iaqGrades = [
-  { name: 'Très bon', color: '#16a34a' },
-  { name: 'Bon',     color: '#22c55e' },
-  { name: 'Moyen',   color: '#f59e0b' },
-  { name: 'Médiocre',color: '#f97316' },
-  { name: 'Mauvais', color: '#ef4444' }
-];
-
 // Draw an SVG donut segment (ring slice)
 function polarToCartesian(cx, cy, r, angleDeg) {
   const a = (angleDeg - 90) * Math.PI/180.0;
@@ -434,8 +430,12 @@ function drawIAQGauge(value) {
     if (valueEl) valueEl.innerText = '--';
     if (gradeEl) gradeEl.innerText = '--';
   } else {
-    if (valueEl) valueEl.innerText = Number(value).toFixed(2);
-    if (gradeEl) gradeEl.innerText = iaqGrades[Math.max(0, activeIndex)].name;
+    if (valueEl && gradeEl) {
+      const grade = iaqGrades[Math.max(0, activeIndex)];
+      valueEl.innerText = Number(value).toFixed(2);
+      gradeEl.innerText = grade.name;
+      valueEl.style.color = grade.color; // Match gauge color
+    }
   }
 
   // Add simple interactivity: hover a segment to show its label
@@ -467,15 +467,15 @@ async function updateDashboard() {
     const latest = feeds[feeds.length - 1];
 
     // Update live cards (defensive)
-    document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
-    document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
-    document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
+    document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(1) + " °C" : "-- °C";
+    document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? (parseFloat(latest.field2)/100).toFixed(1) + " hPa" : "-- hPa";
+    document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(1) + " %" : "-- %";
     const iaqRaw = parseFloat(latest.field4);
     document.getElementById('iaqValue').innerText = isFinite(iaqRaw) ? iaqRaw.toFixed(2) : "--";
     drawIAQGauge(isFinite(iaqRaw) ? iaqRaw : NaN);
-    document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(2) : "--";
-    document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(2) + " ppm" : "--";
-    document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(2) + " ppm" : "--";
+    document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(1) : "--";
+    document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(1) + " ppm" : "--";
+    document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(1) + " ppm" : "--";
 
     if (latest.created_at) {
       document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
