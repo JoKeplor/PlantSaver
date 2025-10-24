@@ -1,556 +1,214 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Le Micro Climat du Balcon de Jonathan - IoT</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlantSaver Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #111827;
+      color: #f9fafb;
+      font-family: 'Inter', sans-serif;
+    }
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<!-- Chart.js and date adapter -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-
-<style>
-  body { background-color: #111827; }
-  /* Ensure controls area stays above canvas and doesn't overlap */
-  .controls-panel { z-index: 10; }
-  
-/* IAQ gauge styling */
-#iaqCard { width: 140px; height: 140px; }
-#iaqGauge { display: block; }
-.iaq-segment { transition: transform 220ms ease, filter 220ms ease; transform-origin: 60px 60px; }
-.iaq-active { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
-  
-</style>
+    .iaq-segment {
+      transition: transform 0.25s ease, filter 0.25s ease, fill 0.25s ease;
+    }
+  </style>
 </head>
-<body class="font-sans text-gray-100">
+<body class="min-h-screen flex flex-col items-center justify-start p-6 space-y-6">
 
-<!-- Top Navigation -->
-<header class="bg-gray-800 shadow-lg">
-  <div class="container mx-auto flex items-center justify-between p-4">
-    <h1 class="text-2xl font-bold text-green-400">Mais alors, quel temps fait-il sur le balcon de Jonathan?</h1>
-    <p id="lastUpdate" class="text-gray-400">Les dernières données météorologiques datent de: --</p>
-  </div>
-</header>
+  <h1 class="text-3xl font-bold text-green-400 mb-4">🌿 PlantSaver Dashboard</h1>
 
-<!-- Main Content -->
-<main class="container mx-auto p-6 space-y-6">
   <!-- Cards Grid -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  <main class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-6xl">
+
+    <!-- Temp -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Température</h2>
-      <p id="tempValue" class="text-2xl sm:text-3xl font-bold text-green-400">-- °C</p>
+      <p id="tempValue" class="text-3xl font-bold text-green-400">-- °C</p>
     </div>
 
+    <!-- Pressure -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Pression</h2>
-      <p id="pressureValue" class="text-2xl sm:text-3xl font-bold text-red-400">-- hPa</p>
+      <p id="pressureValue" class="text-3xl font-bold text-red-400">-- hPa</p>
     </div>
 
+    <!-- Humidity -->
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Hygrométrie</h2>
-      <p id="moistureValue" class="text-2xl sm:text-3xl font-bold text-teal-400">-- %</p>
+      <p id="moistureValue" class="text-3xl font-bold text-teal-400">-- %</p>
     </div>
 
-<div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-  <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
+    <!-- IAQ Gauge -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-3 text-sm sm:text-base">Indice IAQ</h2>
 
-  <!-- Gauge container -->
-  <div id="iaqCard" class="flex items-center justify-center relative">
-    <!-- SVG gauge -->
-    <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <!-- Segments will be drawn here by JS -->
-    </svg>
+      <div id="iaqCard" class="relative w-[140px] h-[140px] flex items-center justify-center">
+        <svg id="iaqGauge" width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg"></svg>
 
-    <!-- Center value -->
-    <div class="absolute flex flex-col items-center justify-center">
-      <span id="iaqValue" class="text-2xl sm:text-3xl font-bold text-blue-400">--</span>
-      <span id="iaqGradeLabel" class="text-xs text-gray-300 mt-1">--</span>
-    </div>
-  </div>
-</div>
-
-    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
-      <p id="iaqprecisionValue" class="text-2xl sm:text-3xl font-bold text-yellow-400">--</p>
-    </div>
-
-    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Quantité de CO2</h2>
-      <p id="co2value" class="text-2xl sm:text-3xl font-bold text-pink-400">--</p>
-    </div>
-
-    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
-      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
-      <p id="vocValue" class="text-2xl sm:text-3xl font-bold text-cyan-400">--</p>
-    </div>
-  </div>
-
-  <!-- Chart Panel -->
-  <div class="bg-gray-800 rounded-xl shadow-lg p-6">
-    <!-- Controls: mobile-first, stacked labels above selects on small screens so long labels never overlap selects or canvas -->
-    <div class="controls-panel mb-4">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 class="text-xl font-semibold">Imagine si on avait accès à l'historique des données, ça serait fou non ?</h2>
-
-        <div class="flex flex-wrap items-center gap-2 justify-end">
-          <!-- Each control stacks on small screens (label above select), sits inline on sm+ -->
-          <div class="flex flex-col sm:flex-row sm:items-center gap-1 w-full sm:w-auto">
-            <label for="variableSelect" class="text-gray-300 text-sm break-words pr-2 sm:pr-0">Alors, tu veux regarder quoi ?</label>
-            <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
-              <option value="field1" selected>Température</option>
-              <option value="field2">Pression</option>
-              <option value="field3">Hygrométrie</option>
-              <option value="field4">IAQ</option>
-              <option value="field5">IAQ précision</option>
-              <option value="field6">CO2</option>
-              <option value="field7">COV</option>
-            </select>
-          </div>
-
-          <div class="flex flex-col sm:flex-row sm:items-center gap-1 w-full sm:w-auto">
-            <label for="timeRangeSelect" class="text-gray-300 text-sm break-words pr-2 sm:pr-0">Sur quelle période?</label>
-            <select id="timeRangeSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
-              <option value="1h">La dernière heure</option>
-              <option value="24h" selected>Les dernières 24h</option>
-              <option value="7d">Les 7 jours passés</option>
-              <option value="30d">Le mois passé</option>
-              <option value="1y">L'année passée</option>
-              <option value="all">Allez balance tout</option>
-            </select>
-          </div>
+        <!-- Center Value -->
+        <div id="iaqValueContainer" class="absolute flex flex-col items-center justify-center">
+          <p id="iaqValue" class="text-4xl font-bold text-white">--</p>
+          <p id="iaqGrade" class="text-sm text-gray-300 mt-1">--</p>
         </div>
       </div>
     </div>
 
-    <!-- Chart container (controls are above so nothing overlays the canvas) -->
-    <div class="w-full">
-      <div class="relative w-full h-48 sm:h-64 md:h-80">
-        <canvas id="dataChart" class="w-full h-full"></canvas>
-      </div>
+    <!-- IAQ precision -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ précision</h2>
+      <p id="iaqprecisionValue" class="text-3xl font-bold text-yellow-400">--</p>
     </div>
-  </div>
-</main>
 
-<script>
-const apiKey = "EAG5JSOPGG6TUX2V";
-const channelID = "3110199";
-// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
-const results = 8000;
-let chart = null;
-let cachedFeeds = null; // store fetched feeds
+    <!-- CO2 -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Quantité de CO₂</h2>
+      <p id="co2value" class="text-3xl font-bold text-pink-400">--</p>
+    </div>
 
-const maxPoints = 2000; // downsample to at most this many points for performance
+    <!-- VOC -->
+    <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
+      <h2 class="text-gray-400 mb-2 text-sm sm:text-base">Qualité de COV</h2>
+      <p id="vocValue" class="text-3xl font-bold text-cyan-400">--</p>
+    </div>
 
-const fieldLabels = {
-  field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
-  field2: {label: "Pression (hPa)", color: "rgb(239,68,68)"},
-  field3: {label: "Hygrométrie (%)", color: "rgb(20,184,166)"},
-  field4: {label: "IAQ", color: "rgb(59,130,246)"},
-  field5: {label: "IAQ précision", color: "rgb(234,179,8)"},
-  field6: {label: "CO2 (ppm)", color: "rgb(236,72,153)"},
-  field7: {label: "COV (ppm)", color: "rgb(6,182,212)"}
-};
+  </main>
 
-const rangeDurationsMs = {
-  '1h': 60 * 60 * 1000,
-  '24h': 24 * 60 * 60 * 1000,
-  '7d': 7 * 24 * 60 * 60 * 1000,
-  '30d': 30 * 24 * 60 * 60 * 1000,
-  '1y': 365 * 24 * 60 * 60 * 1000,
-  'all': Infinity
-};
+  <!-- 🧠 Scripts -->
+  <script>
+    // --- IAQ Gauge Setup ---
+    const iaqGrades = [
+      { max: 50, label: "Excellent", color: "#22c55e" },
+      { max: 100, label: "Bon", color: "#84cc16" },
+      { max: 150, label: "Modéré", color: "#eab308" },
+      { max: 200, label: "Médiocre", color: "#f97316" },
+      { max: 500, label: "Mauvais", color: "#ef4444" }
+    ];
 
-// IAQ grade configuration (thresholds inclusive)
-const iaqGrades = [
-  { name: 'Très bon',  color: '#16a34a', max: 50 },
-  { name: 'Bon',       color: '#22c55e', max: 100 },
-  { name: 'Moyen',     color: '#f59e0b', max: 150 },
-  { name: 'Médiocre',  color: '#f97316', max: 200 },
-  { name: 'Mauvais',   color: '#ef4444', max: Infinity }
-];
+    function iaqGradeIndexForValue(v) {
+      for (let i = 0; i < iaqGrades.length; i++) {
+        if (v <= iaqGrades[i].max) return i;
+      }
+      return -1;
+    }
 
-function iaqGradeIndexForValue(v) {
-  if (!isFinite(v)) return -1;
-  for (let i = 0; i < iaqGrades.length; i++) {
-    if (v <= iaqGrades[i].max) return i;
-  }
-  return iaqGrades.length - 1;
-}
+    // --- Draw IAQ Circular Gauge ---
+    function drawIAQGauge(value) {
+      const svg = document.getElementById("iaqGauge");
+      if (!svg) return;
+      svg.innerHTML = "";
 
-async function getData() {
-  if (cachedFeeds) return cachedFeeds;
-  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
-  const data = await res.json();
-  cachedFeeds = data.feeds || [];
-  return cachedFeeds;
-}
+      const cx = 60, cy = 60, rOuterBase = 44;
+      let startAngle = -90;
+      const totalDegrees = 360;
 
-function filterFeedsByRange(feeds, rangeKey) {
-  if (!feeds || !feeds.length) return [];
-  const now = Date.now();
-  const dur = rangeDurationsMs[rangeKey] ?? Infinity;
-  if (!isFinite(dur)) return feeds.slice(); // 'all' -> return all
-  const cutoff = now - dur;
-  // feeds are chronological (old->new); we can find start index
-  const res = feeds.filter(f => {
-    if (!f.created_at) return false;
-    const t = Date.parse(f.created_at);
-    return !isNaN(t) && t >= cutoff;
-  });
-  return res;
-}
+      const totalMax = iaqGrades[iaqGrades.length - 1].max;
+      const arcDegreesPerUnit = totalDegrees / totalMax;
 
-function extractSeries(feeds, fieldKey) {
-  const labels = [];
-  const values = [];
-  for (const f of feeds) {
-    if (!f.created_at) continue;
-    const raw = f[fieldKey];
-    const v = raw !== null && raw !== undefined ? parseFloat(raw) : NaN;
-    if (!isFinite(v)) continue;
-    const dt = new Date(f.created_at);
-    if (isNaN(dt)) continue;
-    labels.push(dt);
-    values.push(v);
-  }
-  return { labels, values };
-}
+      // Draw color segments
+      iaqGrades.forEach((g, i) => {
+        const prevMax = i === 0 ? 0 : iaqGrades[i - 1].max;
+        const range = g.max - prevMax;
+        const sweep = range * arcDegreesPerUnit;
+        const endAngle = startAngle + sweep;
 
-function downsample(labels, values) {
-  const n = labels.length;
-  if (n <= maxPoints) return { labels, values };
-  const step = Math.ceil(n / maxPoints);
-  const newLabels = [];
-  const newValues = [];
-  for (let i = 0; i < n; i += step) {
-    newLabels.push(labels[i]);
-    newValues.push(values[i]);
-  }
-  return { labels: newLabels, values: newValues };
-}
+        const x1 = cx + rOuterBase * Math.cos((Math.PI / 180) * startAngle);
+        const y1 = cy + rOuterBase * Math.sin((Math.PI / 180) * startAngle);
+        const x2 = cx + rOuterBase * Math.cos((Math.PI / 180) * endAngle);
+        const y2 = cy + rOuterBase * Math.sin((Math.PI / 180) * endAngle);
 
-function getTimeScaleConfig(rangeKey) {
-  // return options for Chart.js time scale adapted to the selected range
-  switch (rangeKey) {
-    case '1h':
-      return {
-        unit: 'minute',
-        displayFormats: { minute: 'HH:mm' },
-        ticks: { maxTicksLimit: 6 }
-      };
-    case '24h':
-      return {
-        unit: 'hour',
-        displayFormats: { hour: 'HH:mm' },
-        ticks: { maxTicksLimit: 6 }
-      };
-    case '7d':
-      return {
-        unit: 'day',
-        displayFormats: { day: 'dd MMM' },
-        ticks: { maxTicksLimit: 7 }
-      };
-    case '30d':
-      return {
-        unit: 'day',
-        displayFormats: { day: 'dd MMM' },
-        ticks: { maxTicksLimit: 8 }
-      };
-    case '1y':
-      return {
-        unit: 'month',
-        displayFormats: { month: 'MMM yyyy' },
-        ticks: { maxTicksLimit: 12 }
-      };
-    default: // 'all' or fallback
-      return {
-        unit: 'month',
-        displayFormats: { month: 'MMM yyyy' },
-        ticks: { maxTicksLimit: 10 }
-      };
-  }
-}
+        const largeArc = sweep > 180 ? 1 : 0;
 
-function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
-  const ctx = document.getElementById('dataChart').getContext('2d');
-  const scaleCfg = getTimeScaleConfig(rangeKey);
+        const pathData = `
+          M ${x1} ${y1}
+          A ${rOuterBase} ${rOuterBase} 0 ${largeArc} 1 ${x2} ${y2}
+        `;
 
-  const dataset = {
-    label: labelName,
-    data: values.map((v, i) => ({ x: labels[i], y: v })),
-    borderColor: color,
-    backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
-    pointRadius: 0,
-    borderWidth: 2,
-    tension: 0.25,
-  };
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", pathData.trim());
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", g.color);
+        path.setAttribute("stroke-width", "8");
+        path.setAttribute("class", "iaq-segment");
+        svg.appendChild(path);
 
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: scaleCfg.unit,
-          tooltipFormat: 'PPpp',
-          displayFormats: scaleCfg.displayFormats
-        },
-        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6 },
-        grid: { color: 'rgba(148,163,184,0.06)' }
-      },
-      y: {
-        ticks: {
-          color: '#cbd5e1',
-          callback: function(value) {
-            if (Math.abs(value) >= 1000) return (value/1000).toFixed(1) + 'k';
-            if (Math.abs(value) % 1 === 0) return String(value);
-            return Number(value).toFixed(1);
+        startAngle = endAngle;
+      });
+
+      // Highlight active range
+      if (!isNaN(value)) {
+        const gi = iaqGradeIndexForValue(value);
+        if (gi >= 0) {
+          const glowColor = iaqGrades[gi].color;
+          svg.style.filter = `drop-shadow(0 0 10px ${glowColor}88)`;
+        }
+      }
+    }
+
+    // --- Fetch data & update dashboard ---
+    async function updateDashboard() {
+      try {
+        const res = await fetch("https://api.thingspeak.com/channels/2612104/feeds.json?results=1");
+        const data = await res.json();
+        const latest = data.feeds[0];
+
+        // Temp
+        const tempRaw = parseFloat(latest.field1);
+        document.getElementById("tempValue").innerText = isFinite(tempRaw) ? tempRaw.toFixed(1) + " °C" : "-- °C";
+
+        // Pressure
+        const pressRaw = parseFloat(latest.field2);
+        document.getElementById("pressureValue").innerText = isFinite(pressRaw) ? pressRaw.toFixed(0) + " hPa" : "-- hPa";
+
+        // Humidity
+        const humRaw = parseFloat(latest.field3);
+        document.getElementById("moistureValue").innerText = isFinite(humRaw) ? humRaw.toFixed(0) + " %" : "-- %";
+
+        // IAQ
+        const iaqRaw = parseFloat(latest.field4);
+        const iaqEl = document.getElementById("iaqValue");
+        const iaqGradeEl = document.getElementById("iaqGrade");
+
+        if (isFinite(iaqRaw)) {
+          const gi = iaqGradeIndexForValue(iaqRaw);
+          if (gi >= 0) {
+            const g = iaqGrades[gi];
+            iaqEl.innerText = iaqRaw.toFixed(0);
+            iaqEl.style.color = g.color;
+            iaqGradeEl.innerText = g.label;
+            iaqGradeEl.style.color = g.color;
           }
-        },
-        grid: { color: 'rgba(148,163,184,0.06)' }
+        } else {
+          iaqEl.innerText = "--";
+          iaqGradeEl.innerText = "--";
+        }
+
+        // ✅ Draw the IAQ gauge ring
+        drawIAQGauge(iaqRaw);
+
+        // IAQ precision
+        const iaqPrec = parseFloat(latest.field5);
+        document.getElementById("iaqprecisionValue").innerText = isFinite(iaqPrec) ? iaqPrec.toFixed(0) : "--";
+
+        // CO2
+        const co2Raw = parseFloat(latest.field6);
+        document.getElementById("co2value").innerText = isFinite(co2Raw) ? co2Raw.toFixed(0) + " ppm" : "--";
+
+        // VOC
+        const vocRaw = parseFloat(latest.field7);
+        document.getElementById("vocValue").innerText = isFinite(vocRaw) ? vocRaw.toFixed(0) + " ppb" : "--";
+
+      } catch (err) {
+        console.error("Erreur de mise à jour:", err);
       }
-    },
-    plugins: {
-      legend: { labels: { color: '#e2e8f0', boxWidth: 10 } },
-      tooltip: {
-        backgroundColor: '#1f2937',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        padding: 8
-      }
-    },
-    elements: { line: { spanGaps: true } }
-  };
-
-  if (!chart) {
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: { datasets: [dataset] },
-      options
-    });
-  } else {
-    chart.data.datasets = [dataset];
-    chart.options.scales.x.time.unit = scaleCfg.unit;
-    chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
-    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6;
-    chart.update();
-  }
-}
-
-function plotFieldForRange(feeds, fieldKey, rangeKey) {
-  const filtered = filterFeedsByRange(feeds, rangeKey);
-  const { labels, values } = extractSeries(filtered, fieldKey);
-  if (labels.length === 0) {
-    createOrUpdateChart([], [], fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
-    return;
-  }
-  const ds = downsample(labels, values);
-  createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
-}
-
-  // IAQ grades configuration (edit ranges/colors/names here)
-const iaqGrades = [
-  { name: 'Très bon', color: '#16a34a' },
-  { name: 'Bon',     color: '#22c55e' },
-  { name: 'Moyen',   color: '#f59e0b' },
-  { name: 'Médiocre',color: '#f97316' },
-  { name: 'Mauvais', color: '#ef4444' }
-];
-
-// Draw an SVG donut segment (ring slice)
-function polarToCartesian(cx, cy, r, angleDeg) {
-  const a = (angleDeg - 90) * Math.PI/180.0;
-  return { x: cx + (r * Math.cos(a)), y: cy + (r * Math.sin(a)) };
-}
-
-function describeArcSegment(cx, cy, rOuter, rInner, startAngle, endAngle) {
-  // Outer arc
-  const p1 = polarToCartesian(cx, cy, rOuter, endAngle);
-  const p2 = polarToCartesian(cx, cy, rOuter, startAngle);
-  const largeArcOuter = endAngle - startAngle <= 180 ? "0" : "1";
-
-  // Inner arc (reverse)
-  const p3 = polarToCartesian(cx, cy, rInner, startAngle);
-  const p4 = polarToCartesian(cx, cy, rInner, endAngle);
-  const largeArcInner = endAngle - startAngle <= 180 ? "0" : "1";
-
-  // Path: outer arc -> line to inner arc -> inner arc -> close
-  const d = [
-    "M", p1.x, p1.y,
-    "A", rOuter, rOuter, 0, largeArcOuter, 0, p2.x, p2.y,
-    "L", p3.x, p3.y,
-    "A", rInner, rInner, 0, largeArcInner, 1, p4.x, p4.y,
-    "Z"
-  ].join(" ");
-  return d;
-}
-
-// Draw the gauge with equal segments; highlight the active segment
-function drawIAQGauge(value) {
-  const svg = document.getElementById('iaqGauge');
-  if (!svg) return;
-
-  // Clear previous
-  svg.innerHTML = '';
-
-  const cx = 60, cy = 60;
-  const rOuterBase = 44;
-  const rInner = 30;
-  const segments = iaqGrades.length;
-  const segAngle = 360 / segments;
-
-  // Determine active index based on numeric value mapped to index:
-  // Here we map numeric IAQ to index by thresholds; tweak if you have specific ranges.
-  // Default threshold mapping:
-  const thresholds = [50, 100, 150, 200]; // boundaries between segments (last >200)
-  let activeIndex = -1;
-  if (isFinite(value)) {
-    for (let i = 0; i < thresholds.length; i++) {
-      if (value <= thresholds[i]) { activeIndex = i; break; }
-    }
-    if (activeIndex === -1) activeIndex = segments - 1;
-  }
-
-  // Draw segments
-  for (let i = 0; i < segments; i++) {
-    const start = i * segAngle;
-    const end = start + segAngle;
-    // Make active segment slightly larger by using bigger outer radius
-    const isActive = i === activeIndex;
-    const rOuter = isActive ? rOuterBase + 8 : rOuterBase;
-    const pathD = describeArcSegment(cx, cy, rOuter, rInner, start, end);
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', pathD);
-    path.setAttribute('fill', iaqGrades[i].color);
-    path.setAttribute('class', 'iaq-segment' + (isActive ? ' iaq-active' : ''));
-    path.setAttribute('data-idx', i);
-    // Slight rotation offset to make segments visually nice (optional)
-    svg.appendChild(path);
-  }
-
-  // Optionally add a thin inner circle ring to smooth center edge
-  const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  innerCircle.setAttribute('cx', cx);
-  innerCircle.setAttribute('cy', cy);
-  innerCircle.setAttribute('r', rInner - 1);
-  innerCircle.setAttribute('fill', '#0f172a'); // match page background tone
-  svg.appendChild(innerCircle);
-
-  // Update center label text and grade label
-  const valueEl = document.getElementById('iaqValue');
-  const gradeEl = document.getElementById('iaqGradeLabel');
-  if (!isFinite(value)) {
-    if (valueEl) valueEl.innerText = '--';
-    if (gradeEl) gradeEl.innerText = '--';
-  } else {
-    if (valueEl) valueEl.innerText = Number(value).toFixed(2);
-    if (gradeEl) gradeEl.innerText = iaqGrades[Math.max(0, activeIndex)].name;
-  }
-
-  // Add simple interactivity: hover a segment to show its label
-  Array.from(svg.querySelectorAll('.iaq-segment')).forEach(p => {
-    p.onmouseenter = () => {
-      const idx = Number(p.getAttribute('data-idx') || 0);
-      const el = document.getElementById('iaqGradeLabel');
-      if (el) el.innerText = iaqGrades[idx].name;
-      p.style.transform = 'scale(1.03)';
-    };
-    p.onmouseleave = () => {
-      // restore active label
-      const idxActive = activeIndex;
-      const el = document.getElementById('iaqGradeLabel');
-      if (el) el.innerText = iaqGrades[Math.max(0, idxActive)].name;
-      p.style.transform = '';
-    };
-  });
-}
-
-async function updateDashboard() {
-  try {
-    const feeds = await getData();
-    if (!Array.isArray(feeds) || feeds.length === 0) {
-      document.getElementById('lastUpdate').innerText = "Aucune donnée disponible.";
-      return;
     }
 
-    const latest = feeds[feeds.length - 1];
-
-    // Update live cards (defensive)
-    document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(2) + " °C" : "-- °C";
-    document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
-    document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
-    const iaqRaw = parseFloat(latest.field4);
-const iaqEl = document.getElementById('iaqValue');
-if (isFinite(iaqRaw)) {
-  iaqEl.innerText = iaqRaw.toFixed(2);
-  const gi = iaqGradeIndexForValue(iaqRaw);
-  if (gi >= 0) {
-    iaqEl.style.color = iaqGrades[gi].color; // set color to grade color
-  } else {
-    iaqEl.style.color = ''; // fallback
-  }
-} else {
-  iaqEl.innerText = "--";
-  iaqEl.style.color = '';
-}
-    document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(2) : "--";
-    document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(2) + " ppm" : "--";
-    document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(2) + " ppm" : "--";
-
-    if (latest.created_at) {
-      document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
-    } else {
-      document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
-    }
-
-    const variable = document.getElementById('variableSelect')?.value || 'field1';
-    const range = document.getElementById('timeRangeSelect')?.value || '24h';
-    plotFieldForRange(feeds, variable, range);
-  } catch (err) {
-    console.error('Failed to update dashboard:', err);
-    document.getElementById('lastUpdate').innerText = "Erreur lors de la récupération des données.";
-  }
-}
-
-// Controls
-const variableSelectEl = document.getElementById('variableSelect');
-const timeRangeSelectEl = document.getElementById('timeRangeSelect');
-
-if (variableSelectEl) {
-  variableSelectEl.addEventListener('change', async () => {
-    try {
-      const feeds = await getData();
-      const range = timeRangeSelectEl?.value || '24h';
-      plotFieldForRange(feeds, variableSelectEl.value, range);
-    } catch (err) {
-      console.error('Error fetching data for chart:', err);
-    }
-  });
-}
-
-if (timeRangeSelectEl) {
-  timeRangeSelectEl.addEventListener('change', async () => {
-    try {
-      const feeds = await getData();
-      const variable = variableSelectEl?.value || 'field1';
-      plotFieldForRange(feeds, variable, timeRangeSelectEl.value);
-    } catch (err) {
-      console.error('Error fetching data for chart:', err);
-    }
-  });
-}
-
-// initial load and periodic refresh
-updateDashboard();
-setInterval(() => { cachedFeeds = null; updateDashboard(); }, 30000);
-</script>
+    // Auto-refresh every 30 seconds
+    updateDashboard();
+    setInterval(updateDashboard, 30000);
+  </script>
 </body>
 </html>
