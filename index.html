@@ -163,6 +163,23 @@ const rangeDurationsMs = {
   'all': Infinity
 };
 
+// IAQ grade configuration (thresholds inclusive)
+const iaqGrades = [
+  { name: 'Très bon',  color: '#16a34a', max: 50 },
+  { name: 'Bon',       color: '#22c55e', max: 100 },
+  { name: 'Moyen',     color: '#f59e0b', max: 150 },
+  { name: 'Médiocre',  color: '#f97316', max: 200 },
+  { name: 'Mauvais',   color: '#ef4444', max: Infinity }
+];
+
+function iaqGradeIndexForValue(v) {
+  if (!isFinite(v)) return -1;
+  for (let i = 0; i < iaqGrades.length; i++) {
+    if (v <= iaqGrades[i].max) return i;
+  }
+  return iaqGrades.length - 1;
+}
+
 async function getData() {
   if (cachedFeeds) return cachedFeeds;
   const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
@@ -471,8 +488,19 @@ async function updateDashboard() {
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? parseFloat(latest.field2).toFixed(2) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(2) + " %" : "-- %";
     const iaqRaw = parseFloat(latest.field4);
-    document.getElementById('iaqValue').innerText = isFinite(iaqRaw) ? iaqRaw.toFixed(2) : "--";
-    drawIAQGauge(isFinite(iaqRaw) ? iaqRaw : NaN);
+const iaqEl = document.getElementById('iaqValue');
+if (isFinite(iaqRaw)) {
+  iaqEl.innerText = iaqRaw.toFixed(2);
+  const gi = iaqGradeIndexForValue(iaqRaw);
+  if (gi >= 0) {
+    iaqEl.style.color = iaqGrades[gi].color; // set color to grade color
+  } else {
+    iaqEl.style.color = ''; // fallback
+  }
+} else {
+  iaqEl.innerText = "--";
+  iaqEl.style.color = '';
+}
     document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(2) : "--";
     document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(2) + " ppm" : "--";
     document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(2) + " ppm" : "--";
