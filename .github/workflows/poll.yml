@@ -1,0 +1,36 @@
+name: Poll Netatmo Public Stations
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # every 15 minutes
+  workflow_dispatch:        # allows manual trigger
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run script
+        env:
+          NETATMO_CLIENT_ID: ${{ secrets.NETATMO_CLIENT_ID }}
+          NETATMO_CLIENT_SECRET: ${{ secrets.NETATMO_CLIENT_SECRET }}
+          NETATMO_USERNAME: ${{ secrets.NETATMO_USERNAME }}
+          NETATMO_PASSWORD: ${{ secrets.NETATMO_PASSWORD }}
+        run: python poll_netatmo.py
+
+      - name: Upload CSV
+        uses: actions/upload-artifact@v3
+        with:
+          name: netatmo-data
+          path: public_stations_history.csv
