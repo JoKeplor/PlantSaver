@@ -8,10 +8,12 @@ from datetime import datetime
 # ---------------------------
 # CONFIG
 # ---------------------------
-CLIENT_ID = "68ffe503bae8b42cb50fb347"
-CLIENT_SECRET = "XiD8Jdmh55LDaXTLedNF0Iza8U15d5cybG"
-USERNAME = "piguillerm@wanadoo.fr"
-PASSWORD = "Pcjj9801!"
+import os
+
+CLIENT_ID = os.environ["NETATMO_CLIENT_ID"]
+CLIENT_SECRET = os.environ["NETATMO_CLIENT_SECRET"]
+USERNAME = os.environ["NETATMO_USERNAME"]
+PASSWORD = os.environ["NETATMO_PASSWORD"]
 
 TOKEN_FILE = "netatmo_token.json"
 
