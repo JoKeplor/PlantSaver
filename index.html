@@ -175,87 +175,73 @@ function showLoading(show) {
   o.style.display = show ? 'flex' : 'none';
 }
 
-/*
-  Robust getData() that:
-  - requests up to pageSize entries per call using the "end" param,
-  - loops backwards in time until ThingSpeak returns fewer than pageSize items,
-  - removes duplicates and sorts old->new.
-*/
 async function getData() {
-  if (cachedFeeds) return cachedFeeds;
+  // 1️⃣ Essaie de charger depuis le cache local
+  const cacheKey = `thingspeak_cache_${channelID}`;
+  const localData = localStorage.getItem(cacheKey);
+  let cachedFeeds = localData ? JSON.parse(localData) : [];
 
   showLoading(true);
-  const pageSize = 8000; // ThingSpeak limit per request
-  let allFeeds = [];
-  let end = new Date(); // start from now (newest)
+
+  // 2️⃣ Récupère le dernier timestamp connu
+  const lastDate = cachedFeeds.length
+    ? new Date(cachedFeeds[cachedFeeds.length - 1].created_at)
+    : new Date(0);
+
+  const pageSize = 8000;
+  const allFeeds = [...cachedFeeds];
+  const seenIds = new Set(cachedFeeds.map(f => String(f.entry_id)));
+
   let keepGoing = true;
+  let start = new Date(); // newest
   let round = 0;
-  const seenIds = new Set();
 
   try {
-    while (keepGoing && round < 100) { // safety cap
-      const endISO = end.toISOString();
-      const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${pageSize}&end=${encodeURIComponent(endISO)}`;
-      // console.log('Fetching', url);
+    while (keepGoing && round < 100) {
+      const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${pageSize}&end=${encodeURIComponent(start.toISOString())}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
+
       const data = await res.json();
       const feeds = Array.isArray(data.feeds) ? data.feeds : [];
 
       if (feeds.length === 0) break;
 
-      // Append feeds to allFeeds (we'll dedupe/sort later)
+      // Filtre les nouveaux points uniquement
       for (const f of feeds) {
-        // if entry_id exists, use it to deduplicate
-        if (f.entry_id && seenIds.has(String(f.entry_id))) continue;
-        if (f.entry_id) seenIds.add(String(f.entry_id));
-        allFeeds.push(f);
+        const ts = Date.parse(f.created_at);
+        if (ts <= lastDate.getTime()) {
+          keepGoing = false;
+          break;
+        }
+        if (f.entry_id && !seenIds.has(String(f.entry_id))) {
+          seenIds.add(String(f.entry_id));
+          allFeeds.push(f);
+        }
       }
 
-      // Determine the oldest timestamp returned and step end backwards
-      // Note: feeds may come in newest-first or oldest-first depending on TS; be defensive
+      // Avance
       const createdTimes = feeds.map(x => Date.parse(x.created_at)).filter(t => !isNaN(t));
-      if (createdTimes.length === 0) break;
       const oldestTs = Math.min(...createdTimes);
+      if (feeds.length < pageSize || oldestTs <= lastDate.getTime()) break;
 
-      // If we received less than a full page, likely we've got everything
-      if (feeds.length < pageSize) {
-        keepGoing = false;
-        break;
-      }
-
-      // Prepare next loop: set 'end' to just before the oldest timestamp we got
-      end = new Date(oldestTs - 1000);
+      start = new Date(oldestTs - 1000);
       round++;
-
-      // polite delay to avoid rate issues with ThingSpeak
       await new Promise(r => setTimeout(r, 500));
     }
 
-    // Final: sort ascending (old -> new) by created_at
-    allFeeds.sort((a, b) => {
-      const ta = Date.parse(a.created_at) || 0;
-      const tb = Date.parse(b.created_at) || 0;
-      return ta - tb;
-    });
+    // Trie et nettoie
+    allFeeds.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 
-    // Optionally final dedupe by entry_id (keep first occurrence)
-    const final = [];
-    const seen = new Set();
-    for (const f of allFeeds) {
-      const id = f.entry_id ? String(f.entry_id) : (f.created_at + '|' + JSON.stringify([f.field1,f.field2,f.field3,f.field4,f.field5,f.field6,f.field7]));
-      if (seen.has(id)) continue;
-      seen.add(id);
-      final.push(f);
-    }
+    // 3️⃣ Sauvegarde dans le cache local
+    localStorage.setItem(cacheKey, JSON.stringify(allFeeds));
 
-    cachedFeeds = final;
-    // console.log('Fetched total', final.length);
-    return final;
+    return allFeeds;
   } finally {
     showLoading(false);
   }
 }
+
 
 function filterFeedsByRange(feeds, rangeKey) {
   if (!feeds || !feeds.length) return [];
