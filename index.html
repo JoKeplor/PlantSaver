@@ -14,30 +14,18 @@
 
 <style>
   body { background-color: #111827; }
+  /* Ensure controls area stays above canvas and doesn't overlap */
   .controls-panel { z-index: 10; }
+  
+  /* IAQ gauge styling */
   #iaqCard { width: 140px; height: 140px; }
   #iaqGauge { display: block; }
   .iaq-segment { transition: transform 220ms ease, filter 220ms ease; transform-origin: 80px 80px; }
   .iaq-active { filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
-
-  /* simple fullscreen loading overlay */
-  #loadingOverlay {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(2,6,23,0.6);
-    z-index: 50;
-    color: #e5e7eb;
-    font-size: 1rem;
-  }
+  
 </style>
 </head>
 <body class="font-sans text-gray-100">
-
-<!-- Loading overlay -->
-<div id="loadingOverlay">Récupération des données historiques… merci de patienter.</div>
 
 <!-- Top Navigation -->
 <header class="bg-gray-800 shadow-lg">
@@ -69,8 +57,14 @@
     <div class="bg-gray-800 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center">
       <h2 class="text-gray-400 mb-2 text-sm sm:text-base">IAQ</h2>
 
+      <!-- Gauge container -->
       <div id="iaqCard" class="flex items-center justify-center relative">
-        <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+        <!-- SVG gauge -->
+        <svg id="iaqGauge" width="140" height="140" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- Segments will be drawn here by JS -->
+        </svg>
+
+        <!-- Center value -->
         <div class="absolute flex flex-col items-center justify-center">
           <span id="iaqValue" class="text-l sm:text-l font-bold transition-colors duration-500 leading-none">--</span>
           <span id="iaqGradeLabel" class="text-xs text-gray-300 mt-1 leading-none">--</span>
@@ -92,11 +86,13 @@
 
   <!-- Chart Panel -->
   <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+    <!-- Controls: mobile-first, stacked labels above selects on small screens so long labels never overlap selects or canvas -->
     <div class="controls-panel mb-4">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 class="text-xl font-semibold">Imagine si on avait accès à l'historique des données, ça serait fou non ?</h2>
 
         <div class="flex flex-wrap items-center gap-2 justify-end">
+          <!-- Each control stacks on small screens (label above select), sits inline on sm+ -->
           <div class="flex flex-col sm:flex-row sm:items-center gap-1 w-full sm:w-auto">
             <label for="variableSelect" class="text-gray-300 text-sm break-words pr-2 sm:pr-0">Alors, tu veux regarder quoi ?</label>
             <select id="variableSelect" class="bg-gray-700 text-gray-100 rounded px-3 py-1 text-sm w-full sm:w-44 max-w-xs">
@@ -125,6 +121,7 @@
       </div>
     </div>
 
+    <!-- Chart container (controls are above so nothing overlays the canvas) -->
     <div class="w-full">
       <div class="relative w-full h-48 sm:h-64 md:h-80">
         <canvas id="dataChart" class="w-full h-full"></canvas>
@@ -136,11 +133,12 @@
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-
+// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
+const results = 8000;
 let chart = null;
 let cachedFeeds = null; // store fetched feeds
 
-const maxPoints = Infinity; // keep all points (still safe because we may downsample later if needed)
+const maxPoints = Infinity; // downsample to at most this many points for performance
 
 const fieldLabels = {
   field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
@@ -160,7 +158,7 @@ const rangeDurationsMs = {
   '1y': 365 * 24 * 60 * 60 * 1000,
   'all': Infinity
 };
-
+  // IAQ grades configuration
 const iaqGrades = [
   { name: 'Très bon', color: '#16a34a' },
   { name: 'Bon',     color: '#22c55e' },
@@ -169,79 +167,16 @@ const iaqGrades = [
   { name: 'Mauvais', color: '#ef4444' }
 ];
 
-function showLoading(show) {
-  const o = document.getElementById('loadingOverlay');
-  if (!o) return;
-  o.style.display = show ? 'flex' : 'none';
-}
 
 async function getData() {
-  // 1️⃣ Essaie de charger depuis le cache local
-  const cacheKey = `thingspeak_cache_${channelID}`;
-  const localData = localStorage.getItem(cacheKey);
-  let cachedFeeds = localData ? JSON.parse(localData) : [];
-
-  showLoading(true);
-
-  // 2️⃣ Récupère le dernier timestamp connu
-  const lastDate = cachedFeeds.length
-    ? new Date(cachedFeeds[cachedFeeds.length - 1].created_at)
-    : new Date(0);
-
-  const pageSize = 8000;
-  const allFeeds = [...cachedFeeds];
-  const seenIds = new Set(cachedFeeds.map(f => String(f.entry_id)));
-
-  let keepGoing = true;
-  let start = new Date(); // newest
-  let round = 0;
-
-  try {
-    while (keepGoing && round < 100) {
-      const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${pageSize}&end=${encodeURIComponent(start.toISOString())}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-
-      const data = await res.json();
-      const feeds = Array.isArray(data.feeds) ? data.feeds : [];
-
-      if (feeds.length === 0) break;
-
-      // Filtre les nouveaux points uniquement
-      for (const f of feeds) {
-        const ts = Date.parse(f.created_at);
-        if (ts <= lastDate.getTime()) {
-          keepGoing = false;
-          break;
-        }
-        if (f.entry_id && !seenIds.has(String(f.entry_id))) {
-          seenIds.add(String(f.entry_id));
-          allFeeds.push(f);
-        }
-      }
-
-      // Avance
-      const createdTimes = feeds.map(x => Date.parse(x.created_at)).filter(t => !isNaN(t));
-      const oldestTs = Math.min(...createdTimes);
-      if (feeds.length < pageSize || oldestTs <= lastDate.getTime()) break;
-
-      start = new Date(oldestTs - 1000);
-      round++;
-      await new Promise(r => setTimeout(r, 500));
-    }
-
-    // Trie et nettoie
-    allFeeds.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-
-    // 3️⃣ Sauvegarde dans le cache local
-    localStorage.setItem(cacheKey, JSON.stringify(allFeeds));
-
-    return allFeeds;
-  } finally {
-    showLoading(false);
-  }
+  if (cachedFeeds) return cachedFeeds;
+  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
+  const data = await res.json();
+  cachedFeeds = data.feeds || [];
+  return cachedFeeds;
 }
-
 
 function filterFeedsByRange(feeds, rangeKey) {
   if (!feeds || !feeds.length) return [];
@@ -249,6 +184,7 @@ function filterFeedsByRange(feeds, rangeKey) {
   const dur = rangeDurationsMs[rangeKey] ?? Infinity;
   if (!isFinite(dur)) return feeds.slice(); // 'all' -> return all
   const cutoff = now - dur;
+  // feeds are chronological (old->new); we can find start index
   const res = feeds.filter(f => {
     if (!f.created_at) return false;
     const t = Date.parse(f.created_at);
@@ -287,19 +223,44 @@ function downsample(labels, values) {
 }
 
 function getTimeScaleConfig(rangeKey) {
+  // return options for Chart.js time scale adapted to the selected range
   switch (rangeKey) {
     case '1h':
-      return { unit: 'minute', displayFormats: { minute: 'HH:mm' }, ticks: { maxTicksLimit: 6 } };
+      return {
+        unit: 'minute',
+        displayFormats: { minute: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
     case '24h':
-      return { unit: 'hour', displayFormats: { hour: 'HH:mm' }, ticks: { maxTicksLimit: 6 } };
+      return {
+        unit: 'hour',
+        displayFormats: { hour: 'HH:mm' },
+        ticks: { maxTicksLimit: 6 }
+      };
     case '7d':
-      return { unit: false, displayFormats: { hour: 'dd MMM' }, ticks: { maxTicksLimit: 10 } };
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 7 }
+      };
     case '30d':
-      return { unit: 'day', displayFormats: { day: 'dd MMM' }, ticks: { maxTicksLimit: 12 } };
+      return {
+        unit: 'day',
+        displayFormats: { day: 'dd MMM' },
+        ticks: { maxTicksLimit: 8 }
+      };
     case '1y':
-      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, ticks: { maxTicksLimit: 12 } };
-    default:
-      return { unit: 'month', displayFormats: { month: 'MMM yyyy' }, ticks: { maxTicksLimit: 10 } };
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 12 }
+      };
+    default: // 'all' or fallback
+      return {
+        unit: 'month',
+        displayFormats: { month: 'MMM yyyy' },
+        ticks: { maxTicksLimit: 10 }
+      };
   }
 }
 
@@ -309,7 +270,7 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
 
   const dataset = {
     label: labelName,
-    data: values.map((v,i) => ({ x: labels[i], y: v })),
+    data: values.map((v, i) => ({ x: labels[i], y: v })),
     borderColor: color,
     backgroundColor: color.replace('rgb','rgba').replace(')',',0.08)'),
     pointRadius: 0,
@@ -329,7 +290,7 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
           tooltipFormat: 'PPpp',
           displayFormats: scaleCfg.displayFormats
         },
-        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.ticks?.maxTicksLimit || 6 },
+        ticks: { color: '#cbd5e1', autoSkip: true, maxRotation: 0, maxTicksLimit: scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6 },
         grid: { color: 'rgba(148,163,184,0.06)' }
       },
       y: {
@@ -357,17 +318,16 @@ function createOrUpdateChart(labels, values, labelName, color, rangeKey) {
   };
 
   if (!chart) {
-    chart = new Chart(ctx, { type: 'line', data: { datasets: [dataset] }, options });
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: { datasets: [dataset] },
+      options
+    });
   } else {
     chart.data.datasets = [dataset];
-    // update time config safely
-    if (!chart.options.scales) chart.options.scales = {};
-    chart.options.scales.x = chart.options.scales.x || {};
-    chart.options.scales.x.time = chart.options.scales.x.time || {};
     chart.options.scales.x.time.unit = scaleCfg.unit;
     chart.options.scales.x.time.displayFormats = scaleCfg.displayFormats;
-    chart.options.scales.x.ticks = chart.options.scales.x.ticks || {};
-    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.ticks?.maxTicksLimit || 6;
+    chart.options.scales.x.ticks.maxTicksLimit = scaleCfg.ticks?.maxTicksLimit || scaleCfg.ticks?.maxTicks || 6;
     chart.update();
   }
 }
@@ -383,50 +343,116 @@ function plotFieldForRange(feeds, fieldKey, rangeKey) {
   createOrUpdateChart(ds.labels, ds.values, fieldLabels[fieldKey]?.label || fieldKey, fieldLabels[fieldKey]?.color || 'rgb(148,163,184)', rangeKey);
 }
 
-/* IAQ gauge functions (unchanged) */
-function polarToCartesian(cx, cy, r, angleDeg) { const a = (angleDeg - 90) * Math.PI/180.0; return { x: cx + (r * Math.cos(a)), y: cy + (r * Math.sin(a)) }; }
+// Draw an SVG donut segment (ring slice)
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const a = (angleDeg - 90) * Math.PI/180.0;
+  return { x: cx + (r * Math.cos(a)), y: cy + (r * Math.sin(a)) };
+}
+
 function describeArcSegment(cx, cy, rOuter, rInner, startAngle, endAngle) {
+  // Outer arc
   const p1 = polarToCartesian(cx, cy, rOuter, endAngle);
   const p2 = polarToCartesian(cx, cy, rOuter, startAngle);
   const largeArcOuter = endAngle - startAngle <= 180 ? "0" : "1";
+
+  // Inner arc (reverse)
   const p3 = polarToCartesian(cx, cy, rInner, startAngle);
   const p4 = polarToCartesian(cx, cy, rInner, endAngle);
   const largeArcInner = endAngle - startAngle <= 180 ? "0" : "1";
-  const d = ["M", p1.x, p1.y, "A", rOuter, rOuter, 0, largeArcOuter, 0, p2.x, p2.y, "L", p3.x, p3.y, "A", rInner, rInner, 0, largeArcInner, 1, p4.x, p4.y, "Z"].join(" ");
+
+  // Path: outer arc -> line to inner arc -> inner arc -> close
+  const d = [
+    "M", p1.x, p1.y,
+    "A", rOuter, rOuter, 0, largeArcOuter, 0, p2.x, p2.y,
+    "L", p3.x, p3.y,
+    "A", rInner, rInner, 0, largeArcInner, 1, p4.x, p4.y,
+    "Z"
+  ].join(" ");
   return d;
 }
+
+// Draw the gauge with equal segments; highlight the active segment
 function drawIAQGauge(value) {
-  const svg = document.getElementById('iaqGauge'); if (!svg) return; svg.innerHTML = '';
-  const cx = 60, cy = 60, rOuterBase = 44, rInner = 30, segments = iaqGrades.length, segAngle = 360 / segments;
-  const thresholds = [50,100,150,200];
+  const svg = document.getElementById('iaqGauge');
+  if (!svg) return;
+
+  // Clear previous
+  svg.innerHTML = '';
+
+  const cx = 60, cy = 60;
+  const rOuterBase = 44;
+  const rInner = 30;
+  const segments = iaqGrades.length;
+  const segAngle = 360 / segments;
+
+  // Determine active index based on numeric value mapped to index:
+  // Here we map numeric IAQ to index by thresholds; tweak if you have specific ranges.
+  // Default threshold mapping:
+  const thresholds = [50, 100, 150, 200]; // boundaries between segments (last >200)
   let activeIndex = -1;
   if (isFinite(value)) {
-    for (let i=0;i<thresholds.length;i++){ if (value <= thresholds[i]) { activeIndex = i; break; } }
-    if (activeIndex === -1) activeIndex = segments-1;
+    for (let i = 0; i < thresholds.length; i++) {
+      if (value <= thresholds[i]) { activeIndex = i; break; }
+    }
+    if (activeIndex === -1) activeIndex = segments - 1;
   }
-  for (let i=0;i<segments;i++){
-    const start = i * segAngle, end = start + segAngle;
+
+  // Draw segments
+  for (let i = 0; i < segments; i++) {
+    const start = i * segAngle;
+    const end = start + segAngle;
+    // Make active segment slightly larger by using bigger outer radius
     const isActive = i === activeIndex;
     const rOuter = isActive ? rOuterBase + 8 : rOuterBase;
     const pathD = describeArcSegment(cx, cy, rOuter, rInner, start, end);
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', pathD);
     path.setAttribute('fill', iaqGrades[i].color);
     path.setAttribute('class', 'iaq-segment' + (isActive ? ' iaq-active' : ''));
     path.setAttribute('data-idx', i);
+    // Slight rotation offset to make segments visually nice (optional)
     svg.appendChild(path);
   }
-  const innerCircle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-  innerCircle.setAttribute('cx', cx); innerCircle.setAttribute('cy', cy); innerCircle.setAttribute('r', rInner-1); innerCircle.setAttribute('fill', '#0f172a');
+
+  // Optionally add a thin inner circle ring to smooth center edge
+  const innerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  innerCircle.setAttribute('cx', cx);
+  innerCircle.setAttribute('cy', cy);
+  innerCircle.setAttribute('r', rInner - 1);
+  innerCircle.setAttribute('fill', '#0f172a'); // match page background tone
   svg.appendChild(innerCircle);
-  const valueEl = document.getElementById('iaqValue'), gradeEl = document.getElementById('iaqGradeLabel');
-  if (!isFinite(value)) { if (valueEl) valueEl.innerText='--'; if (gradeEl) gradeEl.innerText='--'; } else {
-    const grade = iaqGrades[Math.max(0, activeIndex)];
-    if (valueEl && gradeEl) { valueEl.innerText = Number(value).toFixed(2); gradeEl.innerText = grade.name; valueEl.style.color = grade.color; }
+
+  // Update center label text and grade label
+  const valueEl = document.getElementById('iaqValue');
+  const gradeEl = document.getElementById('iaqGradeLabel');
+  if (!isFinite(value)) {
+    if (valueEl) valueEl.innerText = '--';
+    if (gradeEl) gradeEl.innerText = '--';
+  } else {
+    if (valueEl && gradeEl) {
+      const grade = iaqGrades[Math.max(0, activeIndex)];
+      valueEl.innerText = Number(value).toFixed(2);
+      gradeEl.innerText = grade.name;
+      valueEl.style.color = grade.color; // Match gauge color
+    }
   }
+
+  // Add simple interactivity: hover a segment to show its label
   Array.from(svg.querySelectorAll('.iaq-segment')).forEach(p => {
-    p.onmouseenter = () => { const idx = Number(p.getAttribute('data-idx')||0); const el = document.getElementById('iaqGradeLabel'); if (el) el.innerText = iaqGrades[idx].name; p.style.transform='scale(1.03)'; };
-    p.onmouseleave = () => { const idxActive = activeIndex; const el = document.getElementById('iaqGradeLabel'); if (el) el.innerText = iaqGrades[Math.max(0, idxActive)].name; p.style.transform=''; };
+    p.onmouseenter = () => {
+      const idx = Number(p.getAttribute('data-idx') || 0);
+      const el = document.getElementById('iaqGradeLabel');
+      if (el) el.innerText = iaqGrades[idx].name;
+      p.style.transform = 'scale(1.03)';
+    };
+    p.onmouseleave = () => {
+      // restore active label
+      const idxActive = activeIndex;
+      const el = document.getElementById('iaqGradeLabel');
+      if (el) el.innerText = iaqGrades[Math.max(0, idxActive)].name;
+      p.style.transform = '';
+    };
   });
 }
 
@@ -437,7 +463,10 @@ async function updateDashboard() {
       document.getElementById('lastUpdate').innerText = "Aucune donnée disponible.";
       return;
     }
+
     const latest = feeds[feeds.length - 1];
+
+    // Update live cards (defensive)
     document.getElementById('tempValue').innerText = isFinite(parseFloat(latest.field1)) ? parseFloat(latest.field1).toFixed(1) + " °C" : "-- °C";
     document.getElementById('pressureValue').innerText = isFinite(parseFloat(latest.field2)) ? (parseFloat(latest.field2)/100).toFixed(1) + " hPa" : "-- hPa";
     document.getElementById('moistureValue').innerText = isFinite(parseFloat(latest.field3)) ? parseFloat(latest.field3).toFixed(1) + " %" : "-- %";
@@ -447,11 +476,13 @@ async function updateDashboard() {
     document.getElementById('iaqprecisionValue').innerText = isFinite(parseFloat(latest.field5)) ? parseFloat(latest.field5).toFixed(1) : "--";
     document.getElementById('co2value').innerText = isFinite(parseFloat(latest.field6)) ? parseFloat(latest.field6).toFixed(1) + " ppm" : "--";
     document.getElementById('vocValue').innerText = isFinite(parseFloat(latest.field7)) ? parseFloat(latest.field7).toFixed(1) + " ppm" : "--";
+
     if (latest.created_at) {
       document.getElementById('lastUpdate').innerText = "Les dernières données météorologiques datent de : " + new Date(latest.created_at).toLocaleString();
     } else {
       document.getElementById('lastUpdate').innerText = "Dernière mise à jour : --";
     }
+
     const variable = document.getElementById('variableSelect')?.value || 'field1';
     const range = document.getElementById('timeRangeSelect')?.value || '24h';
     plotFieldForRange(feeds, variable, range);
