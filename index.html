@@ -169,12 +169,34 @@ const iaqGrades = [
 
 async function getData() {
   if (cachedFeeds) return cachedFeeds;
-  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
-  const data = await res.json();
-  cachedFeeds = data.feeds || [];
-  return cachedFeeds;
+
+  const pageSize = 8000;
+  let allFeeds = [];
+  let page = 1;
+  let keepFetching = true;
+
+  while (keepFetching) {
+    const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${pageSize}&page=${page}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
+    const data = await res.json();
+    const feeds = data.feeds || [];
+    allFeeds = allFeeds.concat(feeds);
+
+    // stop if we got less than a full page (no more data)
+    if (feeds.length < pageSize) {
+      keepFetching = false;
+    } else {
+      page++;
+    }
+
+    // optional: small delay to be kind to ThingSpeak
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  console.log(`Fetched ${allFeeds.length} total feeds`);
+  cachedFeeds = allFeeds;
+  return allFeeds;
 }
 
 function filterFeedsByRange(feeds, rangeKey) {
