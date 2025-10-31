@@ -133,8 +133,7 @@
 <script>
 const apiKey = "EAG5JSOPGG6TUX2V";
 const channelID = "3110199";
-// Request a reasonable amount; ThingSpeak sometimes limits per-request results.
-const results = Infinity;
+
 let chart = null;
 let cachedFeeds = null; // store fetched feeds
 
@@ -170,7 +169,7 @@ const iaqGrades = [
 
 async function getData() {
   if (cachedFeeds) return cachedFeeds;
-  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
+  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
   const data = await res.json();
