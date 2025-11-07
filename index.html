@@ -138,7 +138,7 @@ const results = 8000;
 let chart = null;
 let cachedFeeds = null; // store fetched feeds
 
-const maxPoints = Infinity; // downsample to at most this many points for performance
+const maxPoints = 2000; // downsample to at most this many points for performance
 
 const fieldLabels = {
   field1: {label: "Température (°C)", color: "rgb(34,197,94)"},
@@ -169,66 +169,14 @@ const iaqGrades = [
 
 
 async function getData() {
-  const cacheKey = `thingspeak_cache_${channelID}`;
-  const localData = localStorage.getItem(cacheKey);
-  let cachedFeeds = localData ? JSON.parse(localData) : [];
-
-  // Find last timestamp we already have
-  const lastDate = cachedFeeds.length
-    ? new Date(cachedFeeds[cachedFeeds.length - 1].created_at)
-    : new Date(0);
-
-  const pageSize = 8000;
-  const newFeeds = [];
-  let start = new Date(); // fetch from newest backwards
-  let keepGoing = true;
-  let round = 0;
-
-  try {
-    while (keepGoing && round < 5) { // 5 pages max per update (you can raise it)
-      const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${pageSize}&end=${encodeURIComponent(start.toISOString())}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      const feeds = Array.isArray(data.feeds) ? data.feeds : [];
-
-      if (feeds.length === 0) break;
-
-      // Filter only new points
-      for (const f of feeds) {
-        const ts = Date.parse(f.created_at);
-        if (ts <= lastDate.getTime()) {
-          keepGoing = false;
-          break;
-        }
-        newFeeds.push(f);
-      }
-
-      const oldest = Math.min(...feeds.map(f => Date.parse(f.created_at)).filter(t => !isNaN(t)));
-      if (feeds.length < pageSize || oldest <= lastDate.getTime()) break;
-
-      start = new Date(oldest - 1000);
-      round++;
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    // Merge, sort, and dedupe
-    const allFeeds = [...cachedFeeds, ...newFeeds]
-      .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))
-      .filter((f, i, arr) =>
-        i === 0 || f.entry_id !== arr[i - 1].entry_id
-      );
-
-    // Save locally
-    localStorage.setItem(cacheKey, JSON.stringify(allFeeds));
-
-    return allFeeds;
-  } catch (err) {
-    console.error("getData failed:", err);
-    return cachedFeeds; // fallback to whatever we had
-  }
+  if (cachedFeeds) return cachedFeeds;
+  const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${apiKey}&results=${results}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Network response was not ok: ' + res.status);
+  const data = await res.json();
+  cachedFeeds = data.feeds || [];
+  return cachedFeeds;
 }
-
 
 function filterFeedsByRange(feeds, rangeKey) {
   if (!feeds || !feeds.length) return [];
